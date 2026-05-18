@@ -1,0 +1,23 @@
+[workspace]
+resolver = "2"
+members = []
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.80.0"
+license = "MIT OR Apache-2.0"
+authors = ["Ahsan Malik"]
+homepage = "https://github.com/iamAhsanMalik/dioxus-grid"
+repository = "https://github.com/iamAhsanMalik/dioxus-grid"
+keywords = ["gui", "dioxus", "datagrid", "table", "wasm"]
+categories = ["gui", "wasm"]
+
+[workspace.dependencies]
+
+# Size-first release profile for wasm consumers.
+[profile.release]
+opt-level = "s"
+lto = "fat"
+codegen-units = 1
+strip = true
