@@ -1,11 +1,11 @@
 [workspace]
-resolver = "2"
+resolver = "3"
 members = []
 
 [workspace.package]
 version = "0.1.0"
 edition = "2021"
-rust-version = "1.80.0"
+rust-version = "1.84.0"
 license = "MIT OR Apache-2.0"
 authors = ["Ahsan Malik"]
 homepage = "https://github.com/iamAhsanMalik/dioxus-grid"
