@@ -1,6 +1,6 @@
 [workspace]
 resolver = "3"
-members = []
+members = ["grid-core"]
 
 [workspace.package]
 version = "0.1.0"
@@ -14,6 +14,7 @@ keywords = ["gui", "dioxus", "datagrid", "table", "wasm"]
 categories = ["gui", "wasm"]
 
 [workspace.dependencies]
+grid-core = { path = "grid-core", version = "0.1.0" }
 
 # Size-first release profile for wasm consumers.
 [profile.release]
