@@ -1,9 +1,12 @@
 //! Headless data-operations engine for a data grid.
 //!
-//! This crate owns the vocabulary a grid uses to describe its data: typed cell
-//! values, a sort instruction and per-column metadata. There is no UI, no
-//! framework and no DOM here, so the data operations can be unit tested and
-//! benchmarked on their own.
+//! This crate owns the vocabulary and the pipeline a grid runs over its data:
+//! filtering, sorting and pagination, expressed as plain data ([`QueryModel`])
+//! evaluated by a [`DataSource`]. There is no UI, no framework and no DOM here —
+//! a renderer drives this and draws the resulting [`ResultSet`].
+//!
+//! Because the query is plain data, the same model can be evaluated in memory
+//! by [`ClientSource`] today or handed to a server later.
 
 #![forbid(unsafe_code)]
 
@@ -14,11 +17,10 @@ use std::cmp::Ordering;
 /// grouping).
 ///
 /// ## Why this exists
-/// String sort keys re-allocate a lowercased `String` for every comparison
-/// **re-allocates a lowercased `String` for every comparison** (`O(n log n)`
-/// allocations), which is fine for a few hundred rows but won't scale to the
-/// 100k-row, server-virtualized grids this engine targets. A column can instead
-/// project each row to a `CellValue` *once*; comparisons are then allocation-free.
+/// A `fn(&T) -> String` sort key re-allocates a lowercased `String` for every
+/// comparison, which is fine for a few hundred rows but does not scale to the
+/// large, virtualized grids this engine targets. A column can instead project
+/// each row to a `CellValue` once; comparisons are then allocation-free.
 ///
 /// ## Ordering
 /// [`CellValue`] is **totally ordered** so it can drive `sort_by` directly:
@@ -174,6 +176,42 @@ impl Sort {
     }
 }
 
+/// The complete description of a grid view: what to search, sort, and which page.
+///
+/// This is plain, cloneable data so the same model can drive an in-memory
+/// [`ClientSource`] today or a remote `DataSource` tomorrow.
+#[derive(Clone, Debug, Default, PartialEq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub struct QueryModel {
+    /// Global search text. Empty (after trim) means "no filter".
+    pub search: String,
+    /// Active sort, if any.
+    pub sort: Option<Sort>,
+    /// Zero-based page index. Clamped into range by the source.
+    pub page: usize,
+    /// Rows per page. Clamped to at least 1 by the source.
+    pub page_size: usize,
+}
+
+impl QueryModel {
+    /// A first page of `page_size` rows with no search or sort.
+    pub fn new(page_size: usize) -> Self {
+        Self { search: String::new(), sort: None, page: 0, page_size }
+    }
+    pub fn with_search(mut self, q: impl Into<String>) -> Self {
+        self.search = q.into();
+        self
+    }
+    pub fn with_sort(mut self, sort: Sort) -> Self {
+        self.sort = Some(sort);
+        self
+    }
+    pub fn with_page(mut self, page: usize) -> Self {
+        self.page = page;
+        self
+    }
+}
+
 /// Data-relevant metadata for one column: how to *sort* it.
 ///
 /// Note this carries **no rendering** — `render`, alignment, width, etc. are view
@@ -214,5 +252,149 @@ impl<T> ColumnDef<T> {
 impl<T> Clone for ColumnDef<T> {
     fn clone(&self) -> Self {
         Self { key: self.key, value: self.value, sort_key: self.sort_key, sort_num: self.sort_num }
+    }
+}
+/// The materialised window a renderer draws for a given [`QueryModel`].
+#[derive(Clone, Debug, PartialEq)]
+pub struct ResultSet<T> {
+    /// Rows on the (clamped) current page.
+    pub rows: Vec<T>,
+    /// Total rows after filtering (before pagination).
+    pub total: usize,
+    /// The current page index after clamping into `0..page_count`.
+    pub page: usize,
+    /// Number of pages (always at least 1).
+    pub page_count: usize,
+}
+
+impl<T> ResultSet<T> {
+    /// 1-based index of the first visible row (0 when empty) — for "Showing X–Y".
+    pub fn from_index(&self, page_size: usize) -> usize {
+        if self.total == 0 {
+            0
+        } else {
+            self.page * page_size.max(1) + 1
+        }
+    }
+    /// 1-based index of the last visible row — for "Showing X–Y".
+    pub fn to_index(&self, page_size: usize) -> usize {
+        (self.page * page_size.max(1) + self.rows.len()).min(self.total)
+    }
+}
+
+/// The seam that lets the grid run client-side **or** server-side data ops from
+/// the same [`QueryModel`]. Implement this over a `Vec<T>` ([`ClientSource`]) or
+/// over a REST/GraphQL/OData backend (a future `RemoteSource`).
+pub trait DataSource<T> {
+    fn query(&self, model: &QueryModel) -> ResultSet<T>;
+}
+
+/// In-memory data source running the filter → sort → paginate pipeline.
+pub struct ClientSource<T> {
+    pub rows: Vec<T>,
+    pub columns: Vec<ColumnDef<T>>,
+    /// Projection used by the global search box. `None` disables searching
+    /// (the search term is ignored).
+    pub search_text: Option<fn(&T) -> String>,
+}
+
+impl<T: Clone> ClientSource<T> {
+    pub fn new(rows: Vec<T>, columns: Vec<ColumnDef<T>>) -> Self {
+        Self { rows, columns, search_text: None }
+    }
+    /// Attach the global-search projection.
+    pub fn searchable(mut self, f: fn(&T) -> String) -> Self {
+        self.search_text = Some(f);
+        self
+    }
+}
+
+impl<T: Clone> DataSource<T> for ClientSource<T> {
+    fn query(&self, m: &QueryModel) -> ResultSet<T> {
+        // ── filter ──────────────────────────────────────────────────────────
+        let q = m.search.trim().to_lowercase();
+        let mut rows: Vec<T> = match self.search_text {
+            Some(hay) if !q.is_empty() => {
+                self.rows.iter().filter(|r| hay(r).to_lowercase().contains(&q)).cloned().collect()
+            }
+            _ => self.rows.clone(),
+        };
+
+        // ── sort ────────────────────────────────────────────────────────────
+        // Precedence: typed `value` (preferred, allocation-light) → `sort_num` →
+        // `sort_key`. `ascending == false` reverses the natural order, so all
+        // three key paths stay consistent with each other.
+        if let Some(Sort { key, ascending }) = &m.sort {
+            if let Some(col) = self.columns.iter().find(|c| c.key == key.as_ref()) {
+                if let Some(val) = col.value {
+                    rows.sort_by_key(val);
+                } else if let Some(num) = col.sort_num {
+                    rows.sort_by(|a, b| num(a).partial_cmp(&num(b)).unwrap_or(Ordering::Equal));
+                } else if let Some(skey) = col.sort_key {
+                    rows.sort_by_key(|r| skey(r).to_lowercase());
+                }
+                // Reverse for descending, once the column is found.
+                if !*ascending {
+                    rows.reverse();
+                }
+            }
+        }
+
+        // ── paginate ────────────────────────────────────────────────────────
+        let total = rows.len();
+        let psize = m.page_size.max(1);
+        let page_count = total.div_ceil(psize).max(1);
+        let page = m.page.min(page_count - 1);
+        let page_rows: Vec<T> = rows.iter().skip(page * psize).take(psize).cloned().collect();
+
+        ResultSet { rows: page_rows, total, page, page_count }
+    }
+}
+
+/// A **server-side** data source: the grid runs filter/sort/paginate on the
+/// backend and this returns the page the server sent.
+///
+/// ## Why a fetcher closure
+/// A headless engine must not pick an async runtime or HTTP client — that's the
+/// host's choice. So `RemoteSource` is parameterised by a synchronous **fetcher**
+/// `F: Fn(&QueryModel) -> ResultSet<T>`. The host wires `F` to its transport:
+/// serialize the [`QueryModel`] (enable the `serde` feature), send it, await the
+/// response *outside* this call, deserialize the rows + counts into a
+/// [`ResultSet`], and hand it back. The engine stays sync, pure, and runtime-free
+/// while [`DataSource`] remains the single seam shared with [`ClientSource`].
+///
+/// In a Dioxus app the typical shape is: a `use_resource` performs the real
+/// `async fetch(model)`; once it resolves, the component builds a
+/// `RemoteSource { fetch: move |_| resolved.clone() }` (or simply uses the
+/// resolved `ResultSet` directly). The trait still lets server- and client-side
+/// grids share one code path.
+///
+/// ```
+/// # use grid_core::{RemoteSource, DataSource, QueryModel, ResultSet};
+/// // Pretend this closure is backed by a REST endpoint that already did the work.
+/// let src = RemoteSource::new(|m: &QueryModel| ResultSet {
+///     rows: vec!["server-row".to_string()],
+///     total: 1,
+///     page: m.page,
+///     page_count: 1,
+/// });
+/// let page = src.query(&QueryModel::new(10).with_search("anything"));
+/// assert_eq!(page.rows, ["server-row"]);
+/// ```
+pub struct RemoteSource<T, F: Fn(&QueryModel) -> ResultSet<T>> {
+    fetch: F,
+    _marker: core::marker::PhantomData<fn() -> T>,
+}
+
+impl<T, F: Fn(&QueryModel) -> ResultSet<T>> RemoteSource<T, F> {
+    /// Wrap a fetcher that maps a [`QueryModel`] to the server's [`ResultSet`].
+    pub fn new(fetch: F) -> Self {
+        Self { fetch, _marker: core::marker::PhantomData }
+    }
+}
+
+impl<T, F: Fn(&QueryModel) -> ResultSet<T>> DataSource<T> for RemoteSource<T, F> {
+    fn query(&self, model: &QueryModel) -> ResultSet<T> {
+        (self.fetch)(model)
     }
 }
