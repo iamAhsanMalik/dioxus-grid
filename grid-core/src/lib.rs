@@ -398,3 +398,255 @@ impl<T, F: Fn(&QueryModel) -> ResultSet<T>> DataSource<T> for RemoteSource<T, F>
         (self.fetch)(model)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[derive(Clone, Debug, PartialEq)]
+    struct Member {
+        name: String,
+        email: String,
+        score: f64,
+    }
+
+    fn m(name: &str, email: &str, score: f64) -> Member {
+        Member { name: name.into(), email: email.into(), score }
+    }
+
+    fn dataset() -> Vec<Member> {
+        vec![
+            m("Carol", "carol@acme.com", 30.0),
+            m("alice", "alice@acme.com", 10.0), // lowercase: tests case-insensitive sort
+            m("Bob", "bob@globex.com", 20.0),
+            m("Dave", "dave@acme.com", 5.0),
+        ]
+    }
+
+    fn columns() -> Vec<ColumnDef<Member>> {
+        vec![ColumnDef::new("name").sortable(|r| r.name.clone()), ColumnDef::new("score").sortable_num(|r| r.score)]
+    }
+
+    fn source() -> ClientSource<Member> {
+        ClientSource::new(dataset(), columns()).searchable(|r| format!("{} {}", r.name, r.email))
+    }
+
+    fn names(rs: &ResultSet<Member>) -> Vec<String> {
+        rs.rows.iter().map(|r| r.name.clone()).collect()
+    }
+
+    #[test]
+    fn no_ops_returns_first_page_in_source_order() {
+        let rs = source().query(&QueryModel::new(10));
+        assert_eq!(names(&rs), ["Carol", "alice", "Bob", "Dave"]);
+        assert_eq!(rs.total, 4);
+        assert_eq!(rs.page, 0);
+        assert_eq!(rs.page_count, 1);
+    }
+
+    #[test]
+    fn search_is_case_insensitive_substring_over_projection() {
+        // "acme" matches three emails; order preserved (no sort).
+        let rs = source().query(&QueryModel::new(10).with_search("ACME"));
+        assert_eq!(names(&rs), ["Carol", "alice", "Dave"]);
+        assert_eq!(rs.total, 3);
+        // matches a name too
+        let rs = source().query(&QueryModel::new(10).with_search("bo"));
+        assert_eq!(names(&rs), ["Bob"]);
+    }
+
+    #[test]
+    fn empty_search_is_a_no_op() {
+        let rs = source().query(&QueryModel::new(10).with_search("   "));
+        assert_eq!(rs.total, 4);
+    }
+
+    #[test]
+    fn search_ignored_when_no_projection() {
+        let src = ClientSource::new(dataset(), columns()); // no `.searchable`
+        let rs = src.query(&QueryModel::new(10).with_search("acme"));
+        assert_eq!(rs.total, 4, "without search_text the term is ignored");
+    }
+
+    #[test]
+    fn string_sort_is_case_insensitive_and_reversible() {
+        let asc = source().query(&QueryModel::new(10).with_sort(Sort::asc("name")));
+        assert_eq!(names(&asc), ["alice", "Bob", "Carol", "Dave"]);
+        let desc = source().query(&QueryModel::new(10).with_sort(Sort::desc("name")));
+        assert_eq!(names(&desc), ["Dave", "Carol", "Bob", "alice"]);
+    }
+
+    #[test]
+    fn numeric_sort_wins_over_string_and_orders_by_value() {
+        let asc = source().query(&QueryModel::new(10).with_sort(Sort::asc("score")));
+        assert_eq!(names(&asc), ["Dave", "alice", "Bob", "Carol"]); // 5,10,20,30
+        let desc = source().query(&QueryModel::new(10).with_sort(Sort::desc("score")));
+        assert_eq!(names(&desc), ["Carol", "Bob", "alice", "Dave"]); // 30,20,10,5
+    }
+
+    #[test]
+    fn unknown_sort_key_is_a_no_op() {
+        let rs = source().query(&QueryModel::new(10).with_sort(Sort::asc("nope")));
+        assert_eq!(names(&rs), ["Carol", "alice", "Bob", "Dave"]);
+    }
+
+    #[test]
+    fn pagination_windows_and_clamps() {
+        let q = QueryModel::new(2).with_sort(Sort::asc("name"));
+        let p0 = source().query(&q.clone().with_page(0));
+        assert_eq!(names(&p0), ["alice", "Bob"]);
+        assert_eq!((p0.page, p0.page_count, p0.total), (0, 2, 4));
+
+        let p1 = source().query(&q.clone().with_page(1));
+        assert_eq!(names(&p1), ["Carol", "Dave"]);
+
+        // out-of-range page clamps to the last page
+        let p9 = source().query(&q.with_page(9));
+        assert_eq!(p9.page, 1);
+        assert_eq!(names(&p9), ["Carol", "Dave"]);
+    }
+
+    #[test]
+    fn page_size_zero_is_clamped_to_one() {
+        let mut q = QueryModel::new(0);
+        q.page_size = 0;
+        let rs = source().query(&q);
+        assert_eq!(rs.rows.len(), 1);
+        assert_eq!(rs.page_count, 4);
+    }
+
+    #[test]
+    fn empty_source_is_one_empty_page() {
+        let src = ClientSource::new(Vec::<Member>::new(), columns());
+        let rs = src.query(&QueryModel::new(10));
+        assert_eq!(rs.total, 0);
+        assert_eq!(rs.page_count, 1);
+        assert_eq!(rs.from_index(10), 0);
+        assert_eq!(rs.to_index(10), 0);
+    }
+
+    #[test]
+    fn from_to_index_match_showing_x_to_y() {
+        let q = QueryModel::new(2).with_page(1).with_sort(Sort::asc("name"));
+        let rs = source().query(&q);
+        assert_eq!(rs.from_index(2), 3);
+        assert_eq!(rs.to_index(2), 4);
+    }
+
+    // ── CellValue ────────────────────────────────────────────────────────────
+
+    #[test]
+    fn cellvalue_text_is_case_insensitive() {
+        assert_eq!(CellValue::from("alice").cmp(&CellValue::from("Bob")), Ordering::Less);
+        assert_eq!(CellValue::from("Bob").cmp(&CellValue::from("bob")), Ordering::Equal);
+    }
+
+    #[test]
+    fn cellvalue_numbers_compare_across_int_and_number() {
+        // Int(10) vs Number(10.5) → numeric comparison, not variant rank.
+        assert_eq!(CellValue::Int(10).cmp(&CellValue::Number(10.5)), Ordering::Less);
+        assert_eq!(CellValue::Number(2.0).cmp(&CellValue::Int(2)), Ordering::Equal);
+    }
+
+    #[test]
+    fn cellvalue_nan_sorts_last_and_never_panics() {
+        let nan = CellValue::Number(f64::NAN);
+        assert_eq!(nan.cmp(&CellValue::Number(1.0)), Ordering::Greater);
+        assert_eq!(CellValue::Number(1.0).cmp(&nan), Ordering::Less);
+        assert_eq!(nan.cmp(&CellValue::Number(f64::NAN)), Ordering::Equal);
+        // sortable without panicking
+        let mut v = vec![CellValue::Number(3.0), nan.clone(), CellValue::Number(1.0)];
+        v.sort();
+        assert_eq!(v, vec![CellValue::Number(1.0), CellValue::Number(3.0), nan]);
+    }
+
+    #[test]
+    fn cellvalue_empty_sorts_first() {
+        let mut v = [CellValue::from("z"), CellValue::Empty, CellValue::Int(5)];
+        v.sort();
+        assert_eq!(v[0], CellValue::Empty);
+    }
+
+    #[test]
+    fn cellvalue_mixed_variants_have_a_total_stable_order() {
+        // Bool < Int/Number < Text by rank; total order means sort is deterministic.
+        let mut v = vec![CellValue::from("a"), CellValue::Bool(true), CellValue::Int(1)];
+        v.sort();
+        assert_eq!(v, vec![CellValue::Bool(true), CellValue::Int(1), CellValue::from("a")]);
+    }
+
+    #[test]
+    fn typed_value_sort_matches_legacy_string_sort() {
+        // A `typed` Text column must order identically to the legacy `sortable`.
+        let typed_cols = vec![ColumnDef::new("name").typed(|r: &Member| r.name.as_str().into())];
+        let src = ClientSource::new(dataset(), typed_cols);
+        let asc = src.query(&QueryModel::new(10).with_sort(Sort::asc("name")));
+        assert_eq!(names(&asc), ["alice", "Bob", "Carol", "Dave"]);
+        let desc = src.query(&QueryModel::new(10).with_sort(Sort::desc("name")));
+        assert_eq!(names(&desc), ["Dave", "Carol", "Bob", "alice"]);
+    }
+
+    #[cfg(feature = "serde")]
+    #[test]
+    fn query_model_round_trips_through_json() {
+        // The whole point of the serde gate: a `QueryModel` (with a `Sort` whose
+        // key is a `&'static str`) serializes to JSON and parses back to an
+        // OWNED, equal model — the shape a `RemoteSource` ships to a server.
+        let q = QueryModel::new(25).with_search("acme").with_sort(Sort::desc("name")).with_page(2);
+        let json = serde_json::to_string(&q).unwrap();
+        let back: QueryModel = serde_json::from_str(&json).unwrap();
+        assert_eq!(back, q);
+        // The deserialized key is the owned `Cow` variant but compares equal.
+        assert_eq!(back.sort.as_ref().unwrap().key(), "name");
+    }
+
+    #[cfg(feature = "serde")]
+    #[test]
+    fn cellvalue_round_trips_through_json() {
+        for v in
+            [CellValue::Empty, CellValue::Bool(true), CellValue::Int(-7), CellValue::Number(3.5), CellValue::from("hi")]
+        {
+            let json = serde_json::to_string(&v).unwrap();
+            let back: CellValue = serde_json::from_str(&json).unwrap();
+            assert_eq!(back, v);
+        }
+    }
+
+    #[test]
+    fn remote_source_routes_the_model_to_the_fetcher() {
+        // Simulate a server: it owns the full dataset and does the data ops, then
+        // returns just the page. The grid only ever sends a `QueryModel`. Here the
+        // "server" reuses ClientSource to do the work it would do in SQL.
+        let server = ClientSource::new(dataset(), columns()).searchable(|r| format!("{} {}", r.name, r.email));
+        let remote = RemoteSource::new(move |m: &QueryModel| server.query(m));
+
+        // Same trait, same call site as a client grid — that's the whole point.
+        let rs: ResultSet<Member> = remote.query(&QueryModel::new(2).with_search("acme").with_sort(Sort::asc("name")));
+        assert_eq!(rs.total, 3); // acme matches Carol, alice, Dave
+        assert_eq!(names(&rs), ["alice", "Carol"]); // page 0 of 2, sorted asc
+        assert_eq!(rs.page_count, 2);
+    }
+
+    #[test]
+    fn data_source_trait_is_object_safe_for_mixed_sources() {
+        // A renderer can hold `Box<dyn DataSource<T>>` and swap client⇆server.
+        let client: Box<dyn DataSource<Member>> = Box::new(source());
+        let rs = client.query(&QueryModel::new(10));
+        assert_eq!(rs.total, 4);
+    }
+
+    #[test]
+    fn typed_value_wins_over_legacy_keys() {
+        // Column has BOTH a typed value (by score) and a string key (by name);
+        // the typed value path must win, so we get numeric order, not name order.
+        let cols = vec![ColumnDef {
+            key: "mixed",
+            value: Some(|r: &Member| CellValue::Number(r.score)),
+            sort_key: Some(|r: &Member| r.name.clone()),
+            sort_num: None,
+        }];
+        let src = ClientSource::new(dataset(), cols);
+        let asc = src.query(&QueryModel::new(10).with_sort(Sort::asc("mixed")));
+        assert_eq!(names(&asc), ["Dave", "alice", "Bob", "Carol"]); // 5,10,20,30
+    }
+}
