@@ -1,0 +1,27 @@
+[package]
+name = "grid-core"
+description = "Headless, framework-agnostic data-operations engine (filter, sort, paginate) for data grids. No UI dependencies."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+homepage.workspace = true
+repository.workspace = true
+keywords = ["grid", "datagrid", "headless", "table", "pagination"]
+categories = ["data-structures", "gui"]
+
+# INVARIANT: this crate must remain UI-framework-agnostic. It must NOT depend on
+# `dioxus` (or any renderer). Verify with `cargo tree -p grid-core` — no `dioxus`.
+[dependencies]
+# Optional. Enables `Serialize`/`Deserialize` on `QueryModel`/`Sort`/`CellValue`
+# so a `RemoteSource` can ship the query to a server and parse the response.
+# OFF by default — pure builds stay dependency-free.
+serde = { version = "1", optional = true, default-features = false, features = ["derive", "alloc"] }
+
+[features]
+default = []
+serde = ["dep:serde"]
+
+[dev-dependencies]
+serde_json = "1"
