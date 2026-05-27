@@ -1,0 +1,16 @@
+[package]
+name = "grid-state"
+description = "Headless, framework-agnostic interaction controller for a data grid: query, selection, view mode and intent methods."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+homepage.workspace = true
+repository.workspace = true
+keywords = ["grid", "datagrid", "headless", "state", "controller"]
+categories = ["data-structures", "gui"]
+
+# INVARIANT: framework-agnostic. Must NOT depend on `dioxus`.
+[dependencies]
+grid-core.workspace = true
