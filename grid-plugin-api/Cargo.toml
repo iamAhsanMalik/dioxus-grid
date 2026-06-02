@@ -1,0 +1,25 @@
+[package]
+name = "grid-plugin-api"
+description = "Composable query-pipeline stages (column filters, multi-sort, aggregates) and a data-provider seam for headless data grids."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+homepage.workspace = true
+repository.workspace = true
+keywords = ["grid", "datagrid", "headless", "filter", "sort"]
+categories = ["data-structures", "gui"]
+
+# INVARIANT: framework-agnostic. Must NOT depend on `dioxus` (or any renderer).
+# Built on `grid-core` only; composes WITH its frozen types.
+[dependencies]
+grid-core.workspace = true
+serde = { version = "1", optional = true, default-features = false, features = ["derive", "alloc"] }
+
+[features]
+default = []
+serde = ["grid-core/serde", "dep:serde"]
+
+[dev-dependencies]
+serde_json = "1"
