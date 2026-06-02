@@ -22,6 +22,9 @@ use grid_core::{ColumnDef, QueryModel, ResultSet};
 // caller can build filters/sorts depending on `grid-plugin-api` alone.
 pub use grid_core::{CellValue, Sort};
 
+mod provider;
+pub use provider::{DataProvider, GridPage, GridQuery, LocalProvider};
+
 /// An owned/borrowed column key, mirroring [`grid_core::Sort`]'s key type: free to
 /// build from a `&'static str` column key, yet round-trips through serde (it
 /// deserializes to the owned variant).
