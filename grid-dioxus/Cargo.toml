@@ -1,0 +1,35 @@
+[package]
+name = "grid-dioxus"
+description = "A headless Dioxus renderer for the grid-core data grid engine. Ships behavior and data-* state hooks; you bring the CSS."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+homepage.workspace = true
+repository.workspace = true
+keywords = ["dioxus", "datagrid", "table", "grid", "wasm"]
+categories = ["gui", "wasm"]
+
+[dependencies]
+dioxus.workspace = true
+grid-core.workspace = true
+grid-state.workspace = true
+grid-plugin-api.workspace = true
+
+# Browser-only glue (localStorage for column-layout persistence). Pulled in by the
+# `web` feature so the `#[cfg(feature = "web")]` code compiles wherever needed.
+web-sys = { version = "0.3", optional = true, features = ["Window", "Storage"] }
+
+# Rich client-side export encoders (Excel .xlsx, PDF). Heavyweight binary-format
+# crates behind `export-rich`; CSV export is always available (no deps). On the
+# web these are typically produced server-side, so leave `export-rich` off for wasm.
+rust_xlsxwriter = { version = "0.79", optional = true }
+krilla = { version = "0.4", optional = true }
+
+[features]
+default = []
+# `web` enables browser localStorage persistence of column layout.
+web = ["dioxus/web", "dep:web-sys"]
+# Client-side Excel + PDF export. Off by default (CSV always works).
+export-rich = ["dep:rust_xlsxwriter", "rust_xlsxwriter/wasm", "dep:krilla"]

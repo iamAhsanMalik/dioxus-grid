@@ -1,6 +1,6 @@
 [workspace]
 resolver = "3"
-members = ["grid-core", "grid-plugin-api", "grid-state"]
+members = ["grid-core", "grid-dioxus", "grid-plugin-api", "grid-state"]
 
 [workspace.package]
 version = "0.1.0"
@@ -14,6 +14,7 @@ keywords = ["gui", "dioxus", "datagrid", "table", "wasm"]
 categories = ["gui", "wasm"]
 
 [workspace.dependencies]
+dioxus = { version = "0.7" }
 grid-core = { path = "grid-core", version = "0.1.0" }
 grid-plugin-api = { path = "grid-plugin-api", version = "0.1.0" }
 grid-state = { path = "grid-state", version = "0.1.0" }
