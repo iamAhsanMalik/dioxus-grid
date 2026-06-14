@@ -827,7 +827,157 @@ pub struct DataGridProps<T: Clone + PartialEq + 'static> {
     pub remote_page: Option<GridPage<T>>,
 }
 
-/// The grid.
+/// Erased entry point: does the `T`-specific projection, then hands a `T`-free
+/// snapshot to the single non-generic renderer. Only this thin shell is generated
+/// per row type, so the renderer body itself compiles once no matter how many row
+/// types a build uses. Selected on wasm by default, or with `force-erased`.
+#[cfg(grid_erased)]
+#[component]
+pub fn DataGrid<T: Clone + PartialEq + 'static>(props: DataGridProps<T>) -> Element {
+    use crate::erased::{ErasedCallbacks, ErasedColumn, ErasedGrid, ErasedRow};
+
+    // Erased columns (display metadata only — projections are applied per row).
+    // Filter metadata (kind, distinct Set values) is computed here since it needs T.
+    let columns: Vec<ErasedColumn> = props
+        .columns
+        .iter()
+        .map(|c| {
+            let filterable = c.sort_key.is_some() || c.sort_num.is_some();
+            let kind = effective_kind(c);
+            let set_values = if kind == FilterKind::Set { distinct_values(&props.rows, c) } else { Vec::new() };
+            ErasedColumn {
+                key: c.key,
+                label: c.label,
+                align: c.align,
+                width: c.width,
+                hide_on_mobile: c.hide_on_mobile,
+                aggregate: c.aggregate,
+                sortable: filterable,
+                editable: c.edit.is_some(),
+                filterable,
+                filter_kind: kind,
+                set_values,
+                numeric: c.sort_num.is_some(),
+                groupable: c.sort_key.is_some(),
+            }
+        })
+        .collect();
+
+    use crate::erased::ErasedState;
+    use std::rc::Rc;
+
+    // ── Interaction state (owned here; the renderer mutates these signals, and
+    //    the page memo below re-queries reactively). All non-generic. ──
+    let grid = use_signal(|| GridState::new(props.page_size.max(1), props.grid_default));
+    let filters = use_signal(HashMap::<&'static str, (FilterOp, String)>::new);
+    let extra_sorts = use_signal(Vec::<(&'static str, bool)>::new);
+    let group_by = use_signal(|| None::<&'static str>);
+    let state = ErasedState { grid, filters, extra_sorts, group_by };
+
+    // Mirror `rows` into a signal so the page memo reacts to dataset changes.
+    let mut rows_sig = use_signal(|| props.rows.clone());
+    if *rows_sig.peek() != props.rows {
+        rows_sig.set(props.rows.clone());
+    }
+
+    // Run the engine query → the visible page (indices into the dataset). Memoized
+    // so it only recomputes when search/filter/sort/page/rows change.
+    let page = {
+        let cols = props.columns.clone();
+        let search_text = props.search_text;
+        use_memo(move || {
+            let q = build_grid_query(&cols, &filters.read(), &grid.read(), &extra_sorts.read(), *group_by.read());
+            let ecols = engine_columns(&cols);
+            LocalProvider::new(rows_sig.read().clone(), &ecols).search_opt(search_text).query(&q)
+        })
+    };
+    let page_val = page.read().clone();
+
+    // Project ONLY the visible page's rows, capturing per-row callbacks that close
+    // over the concrete `T` (so the renderer never holds `T`).
+    // The group column's text projection, when grouping is active.
+    let group_col = group_by.read().and_then(|gk| props.columns.iter().find(|c| c.key == gk).cloned());
+    let rows: Vec<ErasedRow> = page_val
+        .rows
+        .iter()
+        .map(|row| {
+            let id = (props.row_id)(row);
+            ErasedRow {
+                id: id.clone(),
+                group_value: group_col.as_ref().and_then(|c| c.sort_key.map(|f| f(row))),
+                cells: props.columns.iter().map(|c| (c.render)(row)).collect(),
+                edit_seed: props.columns.iter().map(|c| c.edit.map(|f| f(row)).unwrap_or_default()).collect(),
+                actions: props.actions.map(|f| f(row)).unwrap_or_default(),
+                card: props.card.map(|f| f(row)),
+                row_slot: props.row.map(|f| f(row)),
+                on_click: props.on_row_click.map(|h| {
+                    let row = row.clone();
+                    Rc::new(move || h.call(row.clone())) as Rc<dyn Fn()>
+                }),
+                on_action: props.on_action.map(|h| {
+                    let row = row.clone();
+                    Rc::new(move |k: &'static str| h.call((k, row.clone()))) as Rc<dyn Fn(&'static str)>
+                }),
+                on_edit: props.on_edit.map(|h| {
+                    let row = row.clone();
+                    Rc::new(move |key: &'static str, value: String| {
+                        h.call(CellEdit { row: row.clone(), key, value });
+                    }) as Rc<dyn Fn(&'static str, String)>
+                }),
+            }
+        })
+        .collect();
+
+    // Grid-level callbacks. Bulk maps the selected ids back to concrete rows.
+    let bulk_lookup = {
+        let rows_rc = props.rows.clone();
+        let row_id = props.row_id;
+        move |ids: &[String]| -> Vec<T> { rows_rc.iter().filter(|r| ids.contains(&row_id(r))).cloned().collect() }
+    };
+    let callbacks = ErasedCallbacks {
+        on_bulk_action: props.on_bulk_action.map(|h| {
+            let lookup = bulk_lookup.clone();
+            Rc::new(move |k: &'static str, ids: Vec<String>| h.call((k, lookup(&ids))))
+                as Rc<dyn Fn(&'static str, Vec<String>)>
+        }),
+        on_selection: props
+            .on_selection
+            .map(|h| Rc::new(move |ids: Vec<String>| h.call(ids)) as Rc<dyn Fn(Vec<String>)>),
+        on_export_signed: props
+            .on_export_signed
+            .map(|h| Rc::new(move |q: GridQuery| h.call(q)) as Rc<dyn Fn(GridQuery)>),
+    };
+
+    let model = ErasedGrid {
+        columns,
+        rows,
+        callbacks,
+        density: props.density,
+        selectable: props.selectable,
+        loading: props.loading,
+        empty_label: props.empty_label.clone(),
+        grid_default: props.grid_default,
+        no_card_toggle: props.no_card_toggle,
+        has_card: props.card.is_some(),
+        has_row_slot: props.row.is_some(),
+        has_search: props.search_text.is_some(),
+        export_filename: props.export_filename,
+        today: props.today.clone(),
+        persist_key: props.persist_key,
+        total: page_val.total,
+        page_count: page_val.page_count,
+        page: page_val.page,
+        aggregates: page_val.aggregates.clone(),
+        toolbar: props.toolbar.clone(),
+        bulk: props.bulk.clone(),
+    };
+
+    rsx! { crate::erased_render::ErasedDataGrid { grid: model, state } }
+}
+
+/// The monomorphized renderer: a full copy per row type. Selected on native
+/// targets by default, or with `force-mono`.
+#[cfg(grid_mono)]
 #[component]
 pub fn DataGrid<T: Clone + PartialEq + 'static>(props: DataGridProps<T>) -> Element {
     // ── headless controller: the whole interaction state machine lives here ──

@@ -5,6 +5,9 @@
 // is correct if occasionally wasteful. The alternative is hand-writing PartialEq
 // for every props struct and ignoring the callbacks, which is strictly worse.
 #![allow(unpredictable_function_pointer_comparisons)]
+// Several generic helpers and imports are used only by the monomorphized body; in
+// erased mode they are compiled but unreferenced.
+#![cfg_attr(grid_erased, allow(dead_code, unused_imports))]
 
 //! A headless [Dioxus](https://dioxuslabs.com) renderer over the
 //! framework-agnostic [`grid_core`] engine, [`grid_state`] controller and
@@ -38,7 +41,12 @@ use dioxus::prelude::*;
 mod adaptive_grid;
 mod data_grid;
 mod date_range;
+#[cfg(grid_erased)]
+mod erased;
+#[cfg(grid_erased)]
+mod erased_render;
 mod grid_export;
+mod mode;
 mod storage;
 
 pub use adaptive_grid::AdaptiveDataGrid;
