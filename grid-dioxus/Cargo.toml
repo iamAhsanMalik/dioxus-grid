@@ -33,3 +33,16 @@ default = []
 web = ["dioxus/web", "dep:web-sys"]
 # Client-side Excel + PDF export. Off by default (CSV always works).
 export-rich = ["dep:rust_xlsxwriter", "rust_xlsxwriter/wasm", "dep:krilla"]
+
+# ── Render-path selection (bundle size vs. native speed) ──────────────────────
+# The renderer can compile either MONOMORPHIZED (a copy per row type — fastest on
+# native, size irrelevant there) or TYPE-ERASED (one shared copy regardless of how
+# many row types you use — smaller wasm). By DEFAULT the grid picks automatically:
+# wasm targets erase, native targets monomorphize. These two features OVERRIDE the
+# default when you have a specific reason; enabling both is a compile error.
+#
+#   (default)      → erased on wasm32, monomorphized elsewhere
+#   force-mono     → always monomorphized (fast native, even in a wasm build)
+#   force-erased   → always erased (small size, even on native)
+force-mono = []
+force-erased = []
