@@ -1,6 +1,9 @@
 [workspace]
 resolver = "3"
 members = ["grid-core", "grid-dioxus", "grid-plugin-api", "grid-state"]
+# The example carries its own manifest (it needs dioxus/web) so the library
+# crates stay dependency-light.
+exclude = ["examples"]
 
 [workspace.package]
 version = "0.1.0"

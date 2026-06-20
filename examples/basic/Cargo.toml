@@ -1,0 +1,23 @@
+[package]
+name = "grid-basic-example"
+version = "0.0.0"
+edition = "2021"
+publish = false
+
+# A runnable showcase of grid-dioxus. Run with:
+#   dx serve --package grid-basic-example --web
+# Toggle the erased render path (smaller wasm) with:
+#   dx serve --package grid-basic-example --web --features force-erased
+
+[[bin]]
+name = "grid-basic-example"
+path = "src/main.rs"
+
+[dependencies]
+dioxus = { version = "0.7", features = ["web"] }
+grid-dioxus = { path = "../../grid-dioxus", features = ["web"] }
+
+[features]
+default = []
+# Compile the type-erased renderer (smaller wasm; see the repo README).
+force-erased = ["grid-dioxus/force-erased"]
