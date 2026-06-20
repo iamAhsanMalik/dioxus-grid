@@ -1,0 +1,6 @@
+[application]
+name = "grid-basic-example"
+default_platform = "web"
+
+[web.app]
+title = "grid-dioxus — basic example"
