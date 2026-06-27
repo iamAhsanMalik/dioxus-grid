@@ -1812,6 +1812,7 @@ pub fn DataGrid<T: Clone + PartialEq + 'static>(props: DataGridProps<T>) -> Elem
                             input {
                                 r#type: "checkbox",
                                 class: "dxg-checkbox",
+                                "aria-label": "Select row",
                                 checked: is_sel,
                                 onclick: move |e: MouseEvent| e.stop_propagation(),
                                 onchange: {
@@ -2839,6 +2840,7 @@ pub fn DataGrid<T: Clone + PartialEq + 'static>(props: DataGridProps<T>) -> Elem
                                         input {
                                             r#type: "checkbox",
                                             class: "dxg-checkbox",
+                                            "aria-label": "Select all rows on this page",
                                             checked: all_page_selected,
                                             onchange: {
                                                 let ids = page_ids.clone();
@@ -2913,6 +2915,7 @@ pub fn DataGrid<T: Clone + PartialEq + 'static>(props: DataGridProps<T>) -> Elem
                                                 class: "dxg-cell dxg-header-cell",
                                                 style: "{style}",
                                                 role: "columnheader",
+                                                scope: "col",
                                                 "aria-sort": aria_sort,
                                                 "data-align": align_attr,
                                                 "data-sorted": sorted_attr,
@@ -3236,6 +3239,7 @@ pub fn DataGrid<T: Clone + PartialEq + 'static>(props: DataGridProps<T>) -> Elem
                                                 input {
                                                     r#type: "checkbox",
                                                     class: "dxg-checkbox",
+                                                    "aria-label": "Select row",
                                                     checked: is_sel,
                                                     onclick: move |e: MouseEvent| e.stop_propagation(),
                                                     onchange: {
