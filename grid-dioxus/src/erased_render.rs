@@ -327,6 +327,7 @@ pub fn ErasedDataGrid(grid: ReadSignal<ErasedGrid>, state: ErasedState) -> Eleme
                                             input {
                                                 r#type: "checkbox",
                                                 class: "dxg-checkbox",
+                                                "aria-label": "Select row",
                                                 checked: is_sel,
                                                 onclick: move |e: MouseEvent| e.stop_propagation(),
                                                 onchange: {
@@ -369,6 +370,7 @@ pub fn ErasedDataGrid(grid: ReadSignal<ErasedGrid>, state: ErasedState) -> Eleme
                                         input {
                                             r#type: "checkbox",
                                             class: "dxg-checkbox",
+                                            "aria-label": "Select all rows on this page",
                                             checked: all_page_selected,
                                             onchange: {
                                                 let ids = page_ids.clone();
@@ -399,6 +401,7 @@ pub fn ErasedDataGrid(grid: ReadSignal<ErasedGrid>, state: ErasedState) -> Eleme
                                                 class: "dxg-cell dxg-header-cell",
                                                 style: "{wstyle}",
                                                 role: "columnheader",
+                                                scope: "col",
                                                 "aria-sort": aria,
                                                 "data-align": align_attr(col.align),
                                                 "data-sorted": sorted_attr,
@@ -486,6 +489,7 @@ pub fn ErasedDataGrid(grid: ReadSignal<ErasedGrid>, state: ErasedState) -> Eleme
                                                     input {
                                                         r#type: "checkbox",
                                                         class: "dxg-checkbox",
+                                                        "aria-label": "Select row",
                                                         checked: is_sel,
                                                         onclick: move |e: MouseEvent| e.stop_propagation(),
                                                         onchange: {
