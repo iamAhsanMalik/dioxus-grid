@@ -41,6 +41,13 @@ controller, composable query stages, and a Dioxus renderer.
 
 - Selection checkboxes had no accessible name, and header cells were missing
   `scope="col"`.
+- The crate-level doctest did not compile: `rows` takes an `Rc<[T]>` and `row_id`
+  is required.
+
+### Changed
+
+- Minimum supported Rust version is 1.85. Dioxus 0.7 depends on `prelude_2024`,
+  which is not available on 1.84 despite what the dependency metadata declares.
 
 [Unreleased]: https://github.com/iamAhsanMalik/dioxus-grid/compare/v0.1.0...HEAD
 [0.1.0]: https://github.com/iamAhsanMalik/dioxus-grid/releases/tag/v0.1.0

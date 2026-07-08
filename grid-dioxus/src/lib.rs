@@ -19,20 +19,24 @@
 //! [dioxus components](https://github.com/DioxusLabs/components).
 //!
 //! ```no_run
+//! use std::rc::Rc;
+//!
 //! use dioxus::prelude::*;
 //! use grid_dioxus::{DataGrid, GridColumn};
 //!
 //! #[derive(Clone, PartialEq)]
-//! struct Row { name: String, qty: i64 }
+//! struct Row { id: u32, name: String, qty: i64 }
 //!
 //! #[component]
 //! fn Demo() -> Element {
-//!     let rows = vec![Row { name: "Widget".into(), qty: 12 }];
+//!     let rows: Rc<[Row]> = vec![Row { id: 1, name: "Widget".into(), qty: 12 }].into();
 //!     let columns = vec![
 //!         GridColumn::new("name", "Name", |r: &Row| rsx! { "{r.name}" }),
 //!         GridColumn::new("qty", "Qty", |r: &Row| rsx! { "{r.qty}" }),
 //!     ];
-//!     rsx! { DataGrid { rows, columns } }
+//!     rsx! {
+//!         DataGrid { rows, columns, row_id: |r: &Row| r.id.to_string() }
+//!     }
 //! }
 //! ```
 
