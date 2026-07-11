@@ -8,7 +8,7 @@ While the project is `0.x`, minor releases may contain breaking changes.
 
 ## [Unreleased]
 
-## [0.1.0] - 2026-07-04
+## [0.1.0] - 2026-07-11
 
 First release. Four crates: a framework-agnostic engine, an interaction
 controller, composable query stages, and a Dioxus renderer.
@@ -48,6 +48,7 @@ controller, composable query stages, and a Dioxus renderer.
 
 - Minimum supported Rust version is 1.85. Dioxus 0.7 depends on `prelude_2024`,
   which is not available on 1.84 despite what the dependency metadata declares.
+- The workspace uses Cargo's resolver 3.
 
 [Unreleased]: https://github.com/iamAhsanMalik/dioxus-grid/compare/v0.1.0...HEAD
 [0.1.0]: https://github.com/iamAhsanMalik/dioxus-grid/releases/tag/v0.1.0
