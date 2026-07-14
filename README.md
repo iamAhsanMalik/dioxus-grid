@@ -69,7 +69,8 @@ stable identity for selection.
 A column that declares a sort key is filterable automatically — the filter stage
 reuses the same projection, so there is no second set of configuration.
 
-There is a runnable app in [`examples/basic`](examples/basic):
+There is a runnable app in [`examples/basic`](examples/basic), deployed from `main`
+to <https://iamahsanmalik.github.io/dioxus-grid/>:
 
 ```
 dx serve --package grid-basic-example --web
