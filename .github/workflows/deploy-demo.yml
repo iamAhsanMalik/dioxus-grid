@@ -1,0 +1,111 @@
+name: Deploy demo
+
+on:
+  push:
+    branches: [main]
+    # Only rebuild when something that affects the demo changed.
+    paths:
+      - "grid-core/**"
+      - "grid-state/**"
+      - "grid-plugin-api/**"
+      - "grid-dioxus/**"
+      - "examples/basic/**"
+      - "Cargo.toml"
+      - ".github/workflows/deploy-demo.yml"
+  # Allows a manual redeploy without an empty commit.
+  workflow_dispatch:
+
+# GITHUB_TOKEN needs to mint an OIDC token and write Pages.
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# One deployment at a time. Don't cancel a run in progress: a half-finished
+# Pages upload is worse than waiting for it.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+env:
+  CARGO_TERM_COLOR: always
+  CARGO_INCREMENTAL: 0
+  # Pin the CLI so a new dx release can't silently change the output.
+  DX_VERSION: "0.7.9"
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+
+      # The demo has its own manifest outside the workspace, so cache both target
+      # dirs. Keyed on the CLI version too, since a dx bump invalidates the output.
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            .
+            examples/basic
+          key: demo-${{ env.DX_VERSION }}
+
+      # binstall grabs the prebuilt dx binary instead of compiling dioxus-cli
+      # from source, which takes minutes.
+      - uses: cargo-bins/cargo-binstall@v1.21.0
+
+      - name: Install dx
+        run: cargo binstall dioxus-cli --version ${{ env.DX_VERSION }} --no-confirm
+
+      # base-path rewrites asset URLs for project Pages, which serve from
+      # /<repo>/ rather than the domain root.
+      - name: Build demo
+        working-directory: examples/basic
+        run: dx build --release --platform web --base-path ${{ github.event.repository.name }}
+
+      - name: Stage site
+        run: |
+          set -euo pipefail
+          out="examples/basic/target/dx/grid-basic-example/release/web/public"
+          test -f "$out/index.html" || { echo "::error::build produced no index.html"; exit 1; }
+          ls "$out"/assets/*.wasm >/dev/null || { echo "::error::no wasm in the bundle"; exit 1; }
+          mkdir -p site
+          cp -r "$out"/. site/
+          # SPA fallback: Pages has no rewrite rules, so a deep link would 404.
+          cp site/index.html site/404.html
+          # Keep Pages from running the output through Jekyll.
+          touch site/.nojekyll
+
+      # Pages serves these gzipped, so report both numbers — raw alone is
+      # misleading and a jump here is worth noticing in the run log.
+      - name: Report bundle size
+        run: |
+          set -euo pipefail
+          {
+            echo "| Asset | Raw | Gzip |"
+            echo "| --- | --- | --- |"
+            for f in site/assets/*; do
+              raw=$(stat -c%s "$f")
+              gz=$(gzip -9 -c "$f" | wc -c)
+              printf '| `%s` | %s | %s |\n' \
+                "$(basename "$f")" \
+                "$(numfmt --to=iec --suffix=B "$raw")" \
+                "$(numfmt --to=iec --suffix=B "$gz")"
+            done
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/upload-pages-artifact@v5
+        with:
+          path: site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v5
