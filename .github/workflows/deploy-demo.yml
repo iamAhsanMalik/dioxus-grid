@@ -43,21 +43,30 @@ jobs:
         with:
           targets: wasm32-unknown-unknown
 
-      # The demo has its own manifest outside the workspace, so cache both target
-      # dirs. Keyed on the CLI version too, since a dx bump invalidates the output.
-      - uses: Swatinem/rust-cache@v2
-        with:
-          workspaces: |
-            .
-            examples/basic
-          key: demo-${{ env.DX_VERSION }}
-
       # binstall grabs the prebuilt dx binary instead of compiling dioxus-cli
       # from source, which takes minutes.
       - uses: cargo-bins/cargo-binstall@v1.21.0
 
       - name: Install dx
         run: cargo binstall dioxus-cli --version ${{ env.DX_VERSION }} --no-confirm
+
+      - name: Check dx
+        run: dx --version
+
+      # The demo has its own manifest outside the workspace, so cache both target
+      # dirs. Keyed on the CLI version too, since a dx bump invalidates the output.
+      #
+      # cache-bin is off on purpose. With it on, rust-cache restores the install
+      # metadata under ~/.cargo without the binary itself, so binstall reports
+      # "already installed" and skips the download, and the build then fails with
+      # "dx: command not found".
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            .
+            examples/basic
+          key: demo-${{ env.DX_VERSION }}
+          cache-bin: "false"
 
       # base-path rewrites asset URLs for project Pages, which serve from
       # /<repo>/ rather than the domain root.
