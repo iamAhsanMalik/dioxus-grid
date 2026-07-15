@@ -9,6 +9,7 @@ use dioxus::prelude::*;
 use grid_dioxus::{Aggregate, DataGrid, FilterKind, GridAction, GridColumn};
 
 const GRID_CSS: Asset = asset!("/assets/grid.css");
+const FAVICON: Asset = asset!("/assets/favicon.svg");
 
 fn main() {
     dioxus::launch(App);
@@ -58,6 +59,7 @@ fn App() -> Element {
     ];
 
     rsx! {
+        document::Link { rel: "icon", href: FAVICON }
         document::Stylesheet { href: GRID_CSS }
         main { style: "max-width:960px;margin:2rem auto;padding:0 1rem;font-family:system-ui;",
             h1 { style: "font-weight:600;", "grid-dioxus — basic example" }
