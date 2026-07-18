@@ -3,13 +3,14 @@ name: Deploy demo
 on:
   push:
     branches: [main]
-    # Only rebuild when something that affects the demo changed.
+    # Only rebuild when something that affects the site changed.
     paths:
       - "grid-core/**"
       - "grid-state/**"
       - "grid-plugin-api/**"
       - "grid-dioxus/**"
       - "examples/basic/**"
+      - "docs/**"
       - "Cargo.toml"
       - ".github/workflows/deploy-demo.yml"
   # Allows a manual redeploy without an empty commit.
@@ -69,10 +70,11 @@ jobs:
           cache-bin: "false"
 
       # base-path rewrites asset URLs for project Pages, which serve from
-      # /<repo>/ rather than the domain root.
+      # /<repo>/ rather than the domain root. The demo is nested under /demo/,
+      # so it needs the docs path plus that subdirectory.
       - name: Build demo
         working-directory: examples/basic
-        run: dx build --release --platform web --base-path ${{ github.event.repository.name }}
+        run: dx build --release --platform web --base-path ${{ github.event.repository.name }}/demo
 
       - name: Stage site
         run: |
@@ -80,9 +82,14 @@ jobs:
           out="examples/basic/target/dx/grid-basic-example/release/web/public"
           test -f "$out/index.html" || { echo "::error::build produced no index.html"; exit 1; }
           ls "$out"/assets/*.wasm >/dev/null || { echo "::error::no wasm in the bundle"; exit 1; }
-          mkdir -p site
-          cp -r "$out"/. site/
-          # SPA fallback: Pages has no rewrite rules, so a deep link would 404.
+          test -f docs/index.html || { echo "::error::docs/index.html is missing"; exit 1; }
+
+          # Docs at the root, the wasm demo nested under /demo/.
+          mkdir -p site/demo
+          cp -r docs/. site/
+          cp -r "$out"/. site/demo/
+
+          # Pages has no rewrite rules, so serve the docs index for unknown paths.
           cp site/index.html site/404.html
           # Keep Pages from running the output through Jekyll.
           touch site/.nojekyll
@@ -95,7 +102,7 @@ jobs:
           {
             echo "| Asset | Raw | Gzip |"
             echo "| --- | --- | --- |"
-            for f in site/assets/*; do
+            for f in site/demo/assets/*; do
               raw=$(stat -c%s "$f")
               gz=$(gzip -9 -c "$f" | wc -c)
               printf '| `%s` | %s | %s |\n' \

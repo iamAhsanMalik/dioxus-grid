@@ -1,0 +1,407 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Styling — dioxus-grid</title>
+<meta name="description" content="The headless styling contract: stable dxg-* class names, data-* state attributes, geometry-only inline styles, and the --dxg-* theming tokens.">
+<link rel="icon" href="assets/favicon.svg">
+<link rel="stylesheet" href="assets/docs.css">
+</head>
+<body>
+
+<input type="checkbox" id="navToggle" class="nav-toggle" hidden>
+
+<header class="hdr">
+  <label for="navToggle" class="nav-btn" aria-label="Toggle navigation">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 6h18M3 12h18M3 18h18"/></svg>
+  </label>
+
+  <a class="hdr-brand" href="index.html">
+    <svg viewBox="0 0 32 32" aria-hidden="true">
+      <rect width="32" height="32" rx="7" fill="var(--accent)"/>
+      <g fill="var(--accent-ink)">
+        <rect x="6" y="8" width="20" height="3.5" rx="1"/>
+        <rect x="6" y="14.25" width="20" height="3.5" rx="1" opacity=".7"/>
+        <rect x="6" y="20.5" width="20" height="3.5" rx="1" opacity=".45"/>
+      </g>
+    </svg>
+    dioxus-grid
+    <span class="hdr-ver">v0.1.0</span>
+  </a>
+
+  <nav class="hdr-nav">
+    <a href="quickstart.html">Quickstart</a>
+    <a href="demo.html">Demo</a>
+    <a href="https://github.com/iamAhsanMalik/dioxus-grid">GitHub</a>
+  </nav>
+</header>
+
+<div class="shell">
+
+  <aside class="nav">
+    <div class="nav-group">
+      <p class="nav-title">Guides</p>
+      <ul>
+        <li><a href="index.html">Introduction</a></li>
+        <li><a href="quickstart.html">Quickstart</a></li>
+        <li><a href="columns.html">Columns</a></li>
+        <li><a href="sorting-filtering.html">Sorting &amp; filtering</a></li>
+        <li><a href="selection-paging.html">Selection &amp; paging</a></li>
+        <li><a href="styling.html" aria-current="page">Styling</a></li>
+        <li><a href="bundle-size.html">Bundle size</a></li>
+        <li><a href="demo.html">Live demo</a></li>
+      </ul>
+    </div>
+    <div class="nav-group">
+      <p class="nav-title">Crates</p>
+      <ul>
+        <li><a href="grid-core.html">grid-core</a></li>
+        <li><a href="grid-state.html">grid-state</a></li>
+        <li><a href="grid-plugin-api.html">grid-plugin-api</a></li>
+        <li><a href="grid-dioxus.html">grid-dioxus</a></li>
+      </ul>
+    </div>
+  </aside>
+
+  <main class="main">
+    <div class="prose">
+      <p class="eyebrow">Guides</p>
+      <h1>Styling</h1>
+      <p class="lead">
+        The renderer ships no CSS. What it does ship is a contract: stable class
+        names for structure, <code>data-*</code> attributes for state, and inline
+        styles restricted to values that only exist at render time. Write CSS
+        against those three tiers and the grid can change internally without
+        breaking your sheet.
+      </p>
+
+      <h2 id="contract"><a class="anchor" href="#contract" aria-label="Link to this section">#</a>The three tiers</h2>
+      <p>
+        Every attribute the grid emits belongs to exactly one of these tiers, and
+        the tier tells you how stable it is and what you may do with it.
+      </p>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>Tier</th><th>What it is</th><th>Guarantee</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>dxg-&lt;part&gt;</code> classes</td>
+              <td>Structural identity — which part of the grid this element is.</td>
+              <td>Stable and never state-dependent. Safe to target directly.</td>
+            </tr>
+            <tr>
+              <td><code>data-&lt;state&gt;</code> attributes</td>
+              <td>Live state — sorted, selected, pinned, dragging.</td>
+              <td>Style via attribute selectors. Mirrors the ARIA the grid emits.</td>
+            </tr>
+            <tr>
+              <td>Inline <code>style</code></td>
+              <td>Geometry only: column widths, pinned-column offsets.</td>
+              <td>Never colors, never spacing, never anything you would want to theme.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <p>
+        A copy-me reference stylesheet lives at
+        <code>examples/basic/assets/grid.css</code>. It is a neutral, token-driven
+        look — start from it and override, or delete it and write your own.
+      </p>
+
+      <h2 id="classes"><a class="anchor" href="#classes" aria-label="Link to this section">#</a>Structural classes</h2>
+      <p>
+        Class names describe <em>what an element is</em>, not how it looks or what
+        state it is in. A row is <code>dxg-row</code> whether or not it is
+        selected; the selection lives in a <code>data-*</code> attribute. That
+        separation is what lets you write one rule per part and one rule per state
+        instead of a matrix of compound classes.
+      </p>
+      <p>
+        The set below is the part of the surface you will reach for most. It is not
+        exhaustive — the renderer emits well over a hundred <code>dxg-*</code>
+        names covering the calendar, the export menu, chips, the column menu and
+        so on. Inspect the DOM or read the reference sheet for the rest.
+      </p>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>Class</th><th>Element</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>dxg-root</code></td><td>The outermost wrapper. Carries <code>data-view</code> and <code>data-loading</code>.</td></tr>
+            <tr><td><code>dxg-toolbar</code></td><td>Toolbar strip: search, group-by, view toggle, export.</td></tr>
+            <tr><td><code>dxg-scroll</code></td><td>The scroll container around the table.</td></tr>
+            <tr><td><code>dxg-table</code></td><td>The <code>&lt;table&gt;</code> itself (<code>role="grid"</code>).</td></tr>
+            <tr><td><code>dxg-headrow</code></td><td>The header row.</td></tr>
+            <tr><td><code>dxg-cell</code></td><td>On <em>every</em> cell, header and body alike. Put shared padding here.</td></tr>
+            <tr><td><code>dxg-header-cell</code></td><td>A header cell, alongside <code>dxg-cell</code>.</td></tr>
+            <tr><td><code>dxg-header-label</code></td><td>The label text inside a header cell.</td></tr>
+            <tr><td><code>dxg-sort-button</code></td><td>The clickable sort control in a header.</td></tr>
+            <tr><td><code>dxg-sort-indicator</code></td><td>The arrow glyph. Color it from <code>[data-sorted]</code>.</td></tr>
+            <tr><td><code>dxg-sort-rank</code></td><td>The 1, 2, 3 badge when several columns are sorted.</td></tr>
+            <tr><td><code>dxg-row</code></td><td>A body row.</td></tr>
+            <tr><td><code>dxg-body-cell</code></td><td>A body cell, alongside <code>dxg-cell</code>.</td></tr>
+            <tr><td><code>dxg-select-cell</code></td><td>The narrow checkbox column cell.</td></tr>
+            <tr><td><code>dxg-checkbox</code></td><td>Selection checkboxes (row, page, column chooser).</td></tr>
+            <tr><td><code>dxg-action-cell</code></td><td>The trailing actions column cell.</td></tr>
+            <tr><td><code>dxg-kebab</code></td><td>The per-row action trigger.</td></tr>
+            <tr><td><code>dxg-menu</code>, <code>dxg-menu-item</code></td><td>A dropdown menu and its entries.</td></tr>
+            <tr><td><code>dxg-filter-popover</code></td><td>The per-column filter panel.</td></tr>
+            <tr><td><code>dxg-funnel</code></td><td>The filter-funnel button in a header.</td></tr>
+            <tr><td><code>dxg-bulk-bar</code></td><td>The bar shown while rows are selected.</td></tr>
+            <tr><td><code>dxg-pagination</code>, <code>dxg-pager</code></td><td>The footer and its page buttons.</td></tr>
+            <tr><td><code>dxg-totals-row</code>, <code>dxg-totals-cell</code></td><td>The footer aggregate row.</td></tr>
+            <tr><td><code>dxg-group-header</code></td><td>An inserted group-header row when grouping is on.</td></tr>
+            <tr><td><code>dxg-card</code>, <code>dxg-card-grid</code></td><td>A card and its container in gallery view.</td></tr>
+            <tr><td><code>dxg-loading</code>, <code>dxg-empty</code></td><td>The loading and no-results placeholders.</td></tr>
+            <tr><td><code>dxg-resize-handle</code></td><td>The column-resize grab area.</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="note">
+        <div>
+          <strong>Body and header cells share <code>dxg-cell</code>.</strong>
+          Both carry it, plus one of <code>dxg-header-cell</code> /
+          <code>dxg-body-cell</code>. Style padding and alignment once on
+          <code>.dxg-cell</code>, then differentiate only where you must.
+        </div>
+      </div>
+
+      <h2 id="state"><a class="anchor" href="#state" aria-label="Link to this section">#</a>State attributes</h2>
+      <p>
+        Boolean states are present-or-absent, so test for the bare attribute.
+        Enumerated states carry a value, so match on it. Never encode state in a
+        class name of your own by, say, adding a <code>selected</code> class in a
+        wrapper component — the grid already told you, and the attribute is what
+        stays in sync with the ARIA.
+      </p>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>Attribute</th><th>Appears on</th><th>Values</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>data-view</code></td><td><code>dxg-root</code></td><td><code>table</code> / <code>card</code></td></tr>
+            <tr><td><code>data-loading</code></td><td><code>dxg-root</code></td><td>present while <code>loading</code> is set</td></tr>
+            <tr><td><code>data-sorted</code></td><td>header cell, sort button, indicator</td><td><code>asc</code> / <code>desc</code> / <code>none</code></td></tr>
+            <tr><td><code>data-align</code></td><td>any cell</td><td><code>start</code> / <code>center</code> / <code>end</code></td></tr>
+            <tr><td><code>data-selected</code></td><td>row, card</td><td>present = selected</td></tr>
+            <tr><td><code>data-pinned</code></td><td>header cell, body cell</td><td>present = pinned</td></tr>
+            <tr><td><code>data-dragging</code></td><td>header cell</td><td>present = being reordered</td></tr>
+            <tr><td><code>data-hide-mobile</code></td><td>any cell</td><td>present = column marked <code>mobile_hidden</code></td></tr>
+            <tr><td><code>data-active</code></td><td>toggles, funnels, menu items</td><td>present = the control is on / engaged</td></tr>
+            <tr><td><code>data-variant</code></td><td>action buttons, menu items</td><td><code>default</code> / <code>danger</code></td></tr>
+            <tr><td><code>data-clickable</code></td><td>body cell</td><td>present when a row click handler is wired</td></tr>
+            <tr><td><code>data-kbd-focus</code></td><td>body cell</td><td>present while keyboard navigation focuses this cell</td></tr>
+            <tr><td><code>data-editable</code></td><td>body cell</td><td>present when the cell can be edited inline</td></tr>
+            <tr><td><code>data-virtualized</code></td><td>row</td><td>present when rows are height-clamped for virtual scrolling</td></tr>
+            <tr><td><code>data-collapsed</code></td><td>group header</td><td>present when the group is folded shut</td></tr>
+            <tr><td><code>data-grid-headrow</code></td><td>header row</td><td>marker for the sticky header; also <code>data-grid-thead</code> with <code>data-hidden</code></td></tr>
+            <tr><td><code>data-grid-spinner</code></td><td><code>Spinner</code></td><td>marker for the loading spinner element</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <p>
+        The pattern is always the same: one selector per part, one selector per
+        state on that part.
+      </p>
+
+      <div class="code">
+        <div class="code-head"><span class="code-dot"></span>your-sheet.css</div>
+<pre><code><span class="c">/* structure */</span>
+<span class="f">.dxg-row</span> { <span class="t">border-bottom</span>: <span class="n">1px</span> solid <span class="f">var</span>(<span class="a">--line</span>); }
+
+<span class="c">/* state, layered on top */</span>
+<span class="f">.dxg-row</span><span class="f">:hover</span>            { <span class="t">background</span>: <span class="f">var</span>(<span class="a">--hover</span>); }
+<span class="f">.dxg-row</span>[<span class="a">data-selected</span>]   { <span class="t">background</span>: <span class="f">var</span>(<span class="a">--selected</span>); }
+
+<span class="c">/* enum state matches on the value */</span>
+<span class="f">.dxg-cell</span>[<span class="a">data-align</span>=<span class="s">"end"</span>]    { <span class="t">text-align</span>: end; }
+<span class="f">.dxg-cell</span>[<span class="a">data-align</span>=<span class="s">"center"</span>] { <span class="t">text-align</span>: center; }
+
+<span class="c">/* the sort arrow is only visible once the column sorts */</span>
+<span class="f">.dxg-sort-indicator</span>                    { <span class="t">opacity</span>: <span class="n">0</span>; }
+<span class="f">.dxg-header-cell</span>[<span class="a">data-sorted</span>=<span class="s">"asc"</span>]  <span class="f">.dxg-sort-indicator</span>,
+<span class="f">.dxg-header-cell</span>[<span class="a">data-sorted</span>=<span class="s">"desc"</span>] <span class="f">.dxg-sort-indicator</span> { <span class="t">opacity</span>: <span class="n">1</span>; }
+
+<span class="c">/* hide the mobile-hidden columns at your own breakpoint, not the grid's */</span>
+<span class="a">@media</span> (<span class="t">max-width</span>: <span class="n">640px</span>) {
+  <span class="f">.dxg-cell</span>[<span class="a">data-hide-mobile</span>] { <span class="t">display</span>: none; }
+}</code></pre>
+      </div>
+
+      <div class="note">
+        <div>
+          <strong>The mobile breakpoint is yours.</strong>
+          The grid does not decide when narrow is narrow. It only marks which
+          columns the author flagged as droppable via
+          <code>data-hide-mobile</code>; the media query that acts on it lives in
+          your sheet.
+        </div>
+      </div>
+
+      <h2 id="inline"><a class="anchor" href="#inline" aria-label="Link to this section">#</a>Why inline style is limited to geometry</h2>
+      <p>
+        Inline styles win the cascade, so anything the renderer puts there is
+        something you cannot override without <code>!important</code>. That makes
+        inline style a liability, and the rule is therefore narrow: the grid emits
+        it only for values that <em>cannot</em> be expressed in a stylesheet
+        because they are not known until render time.
+      </p>
+      <p>In practice that is two things.</p>
+      <ul>
+        <li>
+          <strong>Column width.</strong> When a user drags a resize handle the
+          resulting pixel width exists only in that session's state, so the header
+          and body cells receive <code>width</code>, <code>min-width</code> and
+          <code>max-width</code> inline. A column declared with
+          <code>.width("12rem")</code> and never resized gets only a
+          <code>min-width</code>.
+        </li>
+        <li>
+          <strong>Pinned-column offset.</strong> A pinned column's
+          <code>left</code> is the sum of the widths of the columns pinned before
+          it — a running total that depends on the live layout, so it is computed
+          and emitted inline.
+        </li>
+      </ul>
+      <p>
+        Everything else about a pinned cell — its background, its shadow, the
+        divider that separates it from the scrolling columns — is yours, keyed off
+        <code>[data-pinned]</code>. Likewise the keyboard focus ring is
+        <code>.dxg-cell[data-kbd-focus]</code>, not an inline outline. If you ever
+        find a color or a padding value inline, that is a bug worth filing.
+      </p>
+
+      <div class="code">
+        <div class="code-head"><span class="code-dot"></span>the grid emits geometry, you supply the look</div>
+<pre><code><span class="c">/* the grid emitted: style="width:180px; min-width:180px; left:44px;" */</span>
+<span class="f">.dxg-cell</span>[<span class="a">data-pinned</span>] {
+  <span class="t">position</span>: sticky;              <span class="c">/* yours */</span>
+  <span class="t">z-index</span>: <span class="n">2</span>;                     <span class="c">/* yours */</span>
+  <span class="t">background</span>: <span class="f">var</span>(<span class="a">--surface</span>);   <span class="c">/* yours */</span>
+  <span class="t">box-shadow</span>: <span class="n">2px</span> <span class="n">0</span> <span class="n">0</span> <span class="f">var</span>(<span class="a">--line</span>);
+}</code></pre>
+      </div>
+
+      <h2 id="theming"><a class="anchor" href="#theming" aria-label="Link to this section">#</a>Theming with tokens</h2>
+      <p>
+        The reference stylesheet does not hardcode colors in its rules. Every
+        value it uses comes from a <code>--dxg-*</code> custom property declared
+        on <code>:root</code>, so reskinning the grid to match your app is a block
+        of variable overrides rather than a rule-by-rule rewrite. The sheet also
+        ships a <code>prefers-color-scheme: dark</code> block, so it is
+        theme-aware with zero setup.
+      </p>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>Token</th><th>Controls</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>--dxg-bg</code></td><td>The grid's base background.</td></tr>
+            <tr><td><code>--dxg-surface</code>, <code>--dxg-surface-alt</code></td><td>Raised surfaces: popovers, menus, cards.</td></tr>
+            <tr><td><code>--dxg-header-bg</code></td><td>The sticky header background.</td></tr>
+            <tr><td><code>--dxg-text</code>, <code>--dxg-text-muted</code>, <code>--dxg-text-faint</code></td><td>The three text weights.</td></tr>
+            <tr><td><code>--dxg-border</code></td><td>Every rule line and divider.</td></tr>
+            <tr><td><code>--dxg-accent</code>, <code>--dxg-accent-weak</code></td><td>Sort and selection accent, and its tint.</td></tr>
+            <tr><td><code>--dxg-row-hover</code>, <code>--dxg-row-selected</code></td><td>Row hover and selected backgrounds.</td></tr>
+            <tr><td><code>--dxg-radius</code></td><td>Corner rounding.</td></tr>
+            <tr><td><code>--dxg-cell-pad-y</code>, <code>--dxg-cell-pad-x</code></td><td>Cell padding — the density dial.</td></tr>
+            <tr><td><code>--dxg-font</code></td><td>The grid's font stack.</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="code">
+        <div class="code-head"><span class="code-dot"></span>reskinning without touching a rule</div>
+<pre><code><span class="f">:root</span> {
+  <span class="a">--dxg-accent</span>: <span class="n">#4f46e5</span>;
+  <span class="a">--dxg-accent-weak</span>: <span class="n">#e0e7ff</span>;
+  <span class="a">--dxg-radius</span>: <span class="n">12px</span>;
+  <span class="a">--dxg-font</span>: <span class="s">"Inter"</span>, system-ui, sans-serif;
+}
+
+<span class="c">/* a tighter grid is two tokens, not a density mode */</span>
+<span class="f">.dxg-root</span><span class="f">.compact</span> {
+  <span class="a">--dxg-cell-pad-y</span>: <span class="n">0.25rem</span>;
+  <span class="a">--dxg-cell-pad-x</span>: <span class="n">0.5rem</span>;
+}</code></pre>
+      </div>
+
+      <div class="note note-warn">
+        <div>
+          <strong><code>GridDensity</code> is not a CSS hook.</strong>
+          The <code>density</code> prop chooses how much <em>chrome</em> the grid
+          renders — <code>Minimal</code> drops the filter funnels, column chooser,
+          group-by and the single-page footer. It changes which elements exist, not
+          how they are spaced, and it emits no attribute on the root. Visual
+          density is the padding tokens above.
+        </div>
+      </div>
+
+      <h2 id="a11y"><a class="anchor" href="#a11y" aria-label="Link to this section">#</a>Accessibility, and why state is duplicated</h2>
+      <p>
+        The grid emits its own ARIA. The table carries <code>role="grid"</code>
+        with <code>aria-rowcount</code> and <code>aria-colcount</code>; header
+        cells are <code>role="columnheader"</code> with <code>scope="col"</code>
+        and an <code>aria-sort</code> of <code>ascending</code> /
+        <code>descending</code> / <code>none</code>; body cells are
+        <code>role="gridcell"</code>; menus use <code>role="menu"</code> and
+        <code>role="menuitem"</code>; toggles carry <code>aria-pressed</code>,
+        popovers <code>aria-expanded</code> and <code>aria-haspopup</code>. Every
+        icon-only control has an <code>aria-label</code>, including the selection
+        checkboxes — "Select row" and "Select all rows on this page".
+      </p>
+      <p>
+        So sorted state exists twice on a header cell: as
+        <code>aria-sort="ascending"</code> and as <code>data-sorted="asc"</code>.
+        That is deliberate. If styling read the ARIA attribute directly, the two
+        concerns would be welded together and a future ARIA correction would break
+        your CSS. Emitting both from the same computed value means they are
+        generated side by side and cannot drift — the assistive tree and the
+        stylesheet each get an attribute shaped for their own job.
+      </p>
+      <p>
+        The practical consequence: style from <code>data-*</code>, and leave the
+        <code>aria-*</code> attributes alone. Do not select on them, and do not
+        override them from the host.
+      </p>
+
+      <div class="pager">
+        <a href="selection-paging.html"><span>Previous</span>← Selection &amp; paging</a>
+        <a class="next" href="bundle-size.html"><span>Next</span>Bundle size →</a>
+      </div>
+
+      <p class="ftr">
+        Dual-licensed under MIT or Apache-2.0.
+        <a href="https://github.com/iamAhsanMalik/dioxus-grid">Source on GitHub</a>.
+      </p>
+    </div>
+  </main>
+
+  <nav class="toc" aria-label="On this page">
+    <p class="toc-title">On this page</p>
+    <ul>
+      <li><a href="#contract">The three tiers</a></li>
+      <li><a href="#classes">Structural classes</a></li>
+      <li><a href="#state">State attributes</a></li>
+      <li><a href="#inline">Why inline style is geometry</a></li>
+      <li><a href="#theming">Theming with tokens</a></li>
+      <li><a href="#a11y">Accessibility</a></li>
+    </ul>
+  </nav>
+
+</div>
+</body>
+</html>

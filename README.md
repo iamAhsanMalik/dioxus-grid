@@ -3,6 +3,9 @@
 A headless data grid for Rust. The engine is framework-agnostic; the renderer
 targets [Dioxus](https://dioxuslabs.com).
 
+**[Documentation](https://iamahsanmalik.github.io/dioxus-grid/)** ·
+**[Live demo](https://iamahsanmalik.github.io/dioxus-grid/demo/)**
+
 Sorting, per-column filters, pagination, selection, grouping, inline editing,
 column reorder/resize/pin and CSV export — with no styling shipped, so the grid
 looks like your app rather than like a widget library.
@@ -70,7 +73,7 @@ A column that declares a sort key is filterable automatically — the filter sta
 reuses the same projection, so there is no second set of configuration.
 
 There is a runnable app in [`examples/basic`](examples/basic), deployed from `main`
-to <https://iamahsanmalik.github.io/dioxus-grid/>:
+to <https://iamahsanmalik.github.io/dioxus-grid/demo/>:
 
 ```
 dx serve --package grid-basic-example --web
@@ -95,13 +98,17 @@ value.
 | --- | --- | --- |
 | `data-sorted` | header cell, sort button | `asc` / `desc` / `none` |
 | `data-align` | any cell | `start` / `center` / `end` |
-| `data-selected` | row, checkbox | present = selected |
+| `data-selected` | row, card | present = selected |
 | `data-pinned` | cell | present = pinned |
 | `data-dragging` | header cell | present = being reordered |
 | `data-hide-mobile` | cell | present = hidden when narrow |
-| `data-density` | root | `comfortable` / `compact` |
+| `data-clickable` | row | present = the row has a click handler |
 | `data-view` | root | `table` / `card` |
-| `data-loading` / `data-empty` | root | present = that state |
+| `data-loading` | root | present = loading |
+
+The empty and loading states also carry the classes `dxg-empty` and
+`dxg-loading`. The full list is in the
+[styling guide](https://iamahsanmalik.github.io/dioxus-grid/styling.html).
 
 **3. Inline `style` — geometry only.** Column widths and pinned-column offsets can
 only be known at render time, so they are emitted inline. Colors and spacing never

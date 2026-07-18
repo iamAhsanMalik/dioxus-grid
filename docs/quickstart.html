@@ -1,0 +1,357 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Quickstart — dioxus-grid</title>
+<meta name="description" content="Install grid-dioxus, declare columns, and render a working data grid with search, sorting, filtering, selection and pagination.">
+<link rel="icon" href="assets/favicon.svg">
+<link rel="stylesheet" href="assets/docs.css">
+</head>
+<body>
+
+<input type="checkbox" id="navToggle" class="nav-toggle" hidden>
+
+<header class="hdr">
+  <label for="navToggle" class="nav-btn" aria-label="Toggle navigation">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 6h18M3 12h18M3 18h18"/></svg>
+  </label>
+
+  <a class="hdr-brand" href="index.html">
+    <svg viewBox="0 0 32 32" aria-hidden="true">
+      <rect width="32" height="32" rx="7" fill="var(--accent)"/>
+      <g fill="var(--accent-ink)">
+        <rect x="6" y="8" width="20" height="3.5" rx="1"/>
+        <rect x="6" y="14.25" width="20" height="3.5" rx="1" opacity=".7"/>
+        <rect x="6" y="20.5" width="20" height="3.5" rx="1" opacity=".45"/>
+      </g>
+    </svg>
+    dioxus-grid
+    <span class="hdr-ver">v0.1.0</span>
+  </a>
+
+  <nav class="hdr-nav">
+    <a href="quickstart.html">Quickstart</a>
+    <a href="demo.html">Demo</a>
+    <a href="https://github.com/iamAhsanMalik/dioxus-grid">GitHub</a>
+  </nav>
+</header>
+
+<div class="shell">
+
+  <aside class="nav">
+    <div class="nav-group">
+      <p class="nav-title">Guides</p>
+      <ul>
+        <li><a href="index.html">Introduction</a></li>
+        <li><a href="quickstart.html" aria-current="page">Quickstart</a></li>
+        <li><a href="columns.html">Columns</a></li>
+        <li><a href="sorting-filtering.html">Sorting &amp; filtering</a></li>
+        <li><a href="selection-paging.html">Selection &amp; paging</a></li>
+        <li><a href="styling.html">Styling</a></li>
+        <li><a href="bundle-size.html">Bundle size</a></li>
+        <li><a href="demo.html">Live demo</a></li>
+      </ul>
+    </div>
+    <div class="nav-group">
+      <p class="nav-title">Crates</p>
+      <ul>
+        <li><a href="grid-core.html">grid-core</a></li>
+        <li><a href="grid-state.html">grid-state</a></li>
+        <li><a href="grid-plugin-api.html">grid-plugin-api</a></li>
+        <li><a href="grid-dioxus.html">grid-dioxus</a></li>
+      </ul>
+    </div>
+  </aside>
+
+  <main class="main">
+    <div class="prose">
+      <p class="eyebrow">Guides</p>
+      <h1>Quickstart</h1>
+      <p class="lead">
+        A working grid is one dependency, a row type, a list of columns and three
+        props. Everything else — search, sorting, filtering, pagination,
+        selection — comes from what the columns declare.
+      </p>
+
+      <h2 id="install"><a class="anchor" href="#install" aria-label="Link to this section">#</a>Install</h2>
+      <p>
+        Add <code>grid-dioxus</code> only. It re-exports <code>grid_core</code>,
+        <code>grid_state</code> and <code>grid_plugin_api</code>, so you never add
+        the headless crates to your own manifest unless you want to depend on them
+        without the renderer.
+      </p>
+
+      <div class="code">
+        <div class="code-head"><span class="code-dot"></span>Cargo.toml</div>
+<pre><code>[<span class="t">dependencies</span>]
+<span class="f">dioxus</span> = { <span class="t">version</span> = <span class="s">"0.7"</span>, <span class="t">features</span> = [<span class="s">"web"</span>] }
+<span class="f">grid-dioxus</span> = { <span class="t">version</span> = <span class="s">"0.1"</span>, <span class="t">features</span> = [<span class="s">"web"</span>] }</code></pre>
+      </div>
+
+      <p>
+        The <code>web</code> feature adds the browser glue — it is what persists a
+        user's column layout to <code>localStorage</code>. Requires Rust 1.85 or
+        newer.
+      </p>
+
+      <h2 id="first-grid"><a class="anchor" href="#first-grid" aria-label="Link to this section">#</a>Your first grid</h2>
+      <p>
+        This is the example from the README. It is compile-tested in the
+        repository, so it will not drift from the API.
+      </p>
+
+      <div class="code">
+        <div class="code-head"><span class="code-dot"></span>src/main.rs</div>
+<pre><code><span class="k">use</span> std::rc::<span class="t">Rc</span>;
+
+<span class="k">use</span> dioxus::prelude::*;
+<span class="k">use</span> grid_dioxus::{<span class="t">DataGrid</span>, <span class="t">GridColumn</span>};
+
+<span class="a">#[derive(Clone, PartialEq)]</span>
+<span class="k">struct</span> <span class="t">Row</span> {
+    id: <span class="t">u32</span>,
+    name: <span class="t">String</span>,
+    qty: <span class="t">i64</span>,
+}
+
+<span class="k">fn</span> <span class="f">search_text</span>(r: &amp;<span class="t">Row</span>) -&gt; <span class="t">String</span> {
+    r.name.<span class="f">clone</span>()
+}
+
+<span class="a">#[component]</span>
+<span class="k">fn</span> <span class="f">Demo</span>() -&gt; <span class="t">Element</span> {
+    <span class="k">let</span> rows: <span class="t">Rc</span>&lt;[<span class="t">Row</span>]&gt; = <span class="f">vec!</span>[<span class="t">Row</span> { id: <span class="n">1</span>, name: <span class="s">"Widget"</span>.<span class="f">into</span>(), qty: <span class="n">12</span> }].<span class="f">into</span>();
+    <span class="k">let</span> columns = <span class="f">vec!</span>[
+        <span class="t">GridColumn</span>::<span class="f">new</span>(<span class="s">"name"</span>, <span class="s">"Name"</span>, |r: &amp;<span class="t">Row</span>| <span class="f">rsx!</span> { <span class="s">"{r.name}"</span> }).<span class="f">sortable</span>(|r| r.name.<span class="f">clone</span>()),
+        <span class="t">GridColumn</span>::<span class="f">new</span>(<span class="s">"qty"</span>, <span class="s">"Qty"</span>, |r: &amp;<span class="t">Row</span>| <span class="f">rsx!</span> { <span class="s">"{r.qty}"</span> }).<span class="f">sortable_num</span>(|r| r.qty <span class="k">as</span> <span class="t">f64</span>),
+    ];
+    <span class="f">rsx!</span> {
+        <span class="t">DataGrid</span> {
+            rows,
+            columns,
+            row_id: |r: &amp;<span class="t">Row</span>| r.id.<span class="f">to_string</span>(),
+            search_text: <span class="t">Some</span>(search_text <span class="k">as</span> <span class="k">fn</span>(&amp;<span class="t">Row</span>) -&gt; <span class="t">String</span>),
+            selectable: <span class="k">true</span>,
+        }
+    }
+}</code></pre>
+      </div>
+
+      <p>
+        That renders a searchable, sortable, filterable, paginated table with
+        selection checkboxes. No table markup, and no CSS yet — see
+        <a href="styling.html">styling</a> for the class contract and a reference
+        stylesheet to copy.
+      </p>
+
+      <h2 id="required-props"><a class="anchor" href="#required-props" aria-label="Link to this section">#</a>The three required props</h2>
+      <p>Everything else on <code>DataGrid</code> has a default.</p>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>Prop</th><th>Type</th><th>Why</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>rows</code></td>
+              <td><code>Rc&lt;[T]&gt;</code></td>
+              <td>The dataset, shared by reference-counted pointer. Neither your component nor the grid ever clones the whole thing.</td>
+            </tr>
+            <tr>
+              <td><code>columns</code></td>
+              <td><code>Vec&lt;GridColumn&lt;T&gt;&gt;</code></td>
+              <td>What to render, and which projections exist for sorting, filtering, export and aggregation.</td>
+            </tr>
+            <tr>
+              <td><code>row_id</code></td>
+              <td><code>fn(&amp;T) -&gt; String</code></td>
+              <td>Stable row identity. Selection and action routing are keyed by it.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h2 id="rc-rows"><a class="anchor" href="#rc-rows" aria-label="Link to this section">#</a>Why rows is an Rc, not a Vec</h2>
+      <p>
+        The grid queries over <em>indices</em> and materialises only the visible
+        page. A one-million-row dataset therefore costs one refcount bump per
+        render plus <code>page_size</code> row clones — not a million. Passing a
+        <code>Vec</code> would force a full copy on every re-render, which is
+        exactly the cost the design is avoiding, so the prop type makes that
+        impossible to do by accident.
+      </p>
+      <p>Both of these work:</p>
+
+      <div class="code">
+        <div class="code-head"><span class="code-dot"></span>Building the Rc</div>
+<pre><code><span class="k">let</span> rows: <span class="t">Rc</span>&lt;[<span class="t">Row</span>]&gt; = my_vec.<span class="f">into</span>();      <span class="c">// Vec&lt;T&gt; → Rc&lt;[T]&gt;</span>
+<span class="k">let</span> rows = <span class="t">Rc</span>::<span class="f">from</span>(products());          <span class="c">// same thing, explicit</span></code></pre>
+      </div>
+
+      <p>
+        If your data lives in a signal, build the <code>Rc</code> at the call site:
+        <code>rows: Rc::from(products())</code>. The grid mirrors the prop into an
+        internal signal, so replacing the <code>Rc</code> re-runs the query and the
+        table updates.
+      </p>
+
+      <h2 id="fn-coercion"><a class="anchor" href="#fn-coercion" aria-label="Link to this section">#</a>The fn-pointer coercion</h2>
+      <p>
+        Columns and several props hold plain <code>fn</code> pointers rather than
+        boxed closures. That is deliberate: it keeps <code>GridColumn&lt;T&gt;</code>
+        and the props struct <code>Clone + PartialEq</code>, which is what lets
+        Dioxus skip re-renders.
+      </p>
+      <p>
+        The consequence is that optional fn-pointer props — <code>search_text</code>,
+        <code>actions</code>, <code>card</code>, <code>row</code> — are
+        <code>Option&lt;fn(…)&gt;</code>, and Rust will not infer the coercion from a
+        non-capturing closure inside <code>Some(...)</code>. Write the cast:
+      </p>
+
+      <div class="code">
+        <div class="code-head"><span class="code-dot"></span>Coercing a closure to a fn pointer</div>
+<pre><code><span class="c">// A named fn — cast it:</span>
+search_text: <span class="t">Some</span>(search_text <span class="k">as</span> <span class="k">fn</span>(&amp;<span class="t">Row</span>) -&gt; <span class="t">String</span>),
+
+<span class="c">// An inline closure — parenthesise, then cast:</span>
+search_text: <span class="t">Some</span>((|p: &amp;<span class="t">Product</span>| <span class="f">format!</span>(<span class="s">"{} {}"</span>, p.name, p.category))
+    <span class="k">as</span> <span class="k">fn</span>(&amp;<span class="t">Product</span>) -&gt; <span class="t">String</span>),
+
+actions: <span class="t">Some</span>((|_p: &amp;<span class="t">Product</span>| <span class="f">vec!</span>[<span class="t">GridAction</span>::<span class="f">new</span>(<span class="s">"view"</span>, <span class="s">"View"</span>)])
+    <span class="k">as</span> <span class="k">fn</span>(&amp;<span class="t">Product</span>) -&gt; <span class="t">Vec</span>&lt;<span class="t">GridAction</span>&gt;),</code></pre>
+      </div>
+
+      <div class="note note-warn">
+        <div>
+          <strong>The closure must not capture.</strong>
+          A <code>fn</code> pointer has no environment, so anything the projection
+          needs has to come from the row argument. Event handlers
+          (<code>on_action</code>, <code>on_edit</code>, <code>on_selection</code>)
+          are <code>EventHandler</code>s, not fn pointers — those capture freely.
+        </div>
+      </div>
+
+      <p>
+        Required fn-pointer props like <code>row_id</code> are not wrapped in
+        <code>Option</code>, so a bare closure is fine there and no cast is needed.
+      </p>
+
+      <h2 id="common-props"><a class="anchor" href="#common-props" aria-label="Link to this section">#</a>Props you will reach for next</h2>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>Prop</th><th>Type</th><th>Effect</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>search_text</code></td><td><code>Option&lt;fn(&amp;T) -&gt; String&gt;</code></td><td>Haystack for the global search box. <code>None</code> hides the box.</td></tr>
+            <tr><td><code>selectable</code></td><td><code>bool</code></td><td>Adds the row and select-page checkboxes.</td></tr>
+            <tr><td><code>page_size</code></td><td><code>usize</code></td><td>Rows per page. Defaults to 10; clamped to at least 1.</td></tr>
+            <tr><td><code>actions</code></td><td><code>Option&lt;fn(&amp;T) -&gt; Vec&lt;GridAction&gt;&gt;</code></td><td>Builds the row kebab menu. <code>None</code> hides the action column.</td></tr>
+            <tr><td><code>on_action</code></td><td><code>EventHandler&lt;(&amp;'static str, T)&gt;</code></td><td>Fires with the action key and the row.</td></tr>
+            <tr><td><code>on_row_click</code></td><td><code>EventHandler&lt;T&gt;</code></td><td>Row click. Checkbox and kebab clicks do not bubble here.</td></tr>
+            <tr><td><code>on_edit</code></td><td><code>EventHandler&lt;CellEdit&lt;T&gt;&gt;</code></td><td>An inline edit was committed. Requires an <code>.editable(…)</code> column.</td></tr>
+            <tr><td><code>on_selection</code></td><td><code>EventHandler&lt;Vec&lt;String&gt;&gt;</code></td><td>The selected-id set changed.</td></tr>
+            <tr><td><code>on_bulk_action</code></td><td><code>EventHandler&lt;(&amp;'static str, Vec&lt;T&gt;)&gt;</code></td><td>Auto-derives a bulk bar from the actions common to every selected row.</td></tr>
+            <tr><td><code>loading</code></td><td><code>bool</code></td><td>Renders the loading state instead of rows.</td></tr>
+            <tr><td><code>empty_label</code></td><td><code>String</code></td><td>Empty-state text. Defaults to <span class="s">"No records match."</span></td></tr>
+            <tr><td><code>toolbar</code></td><td><code>Option&lt;Element&gt;</code></td><td>Extra toolbar content, always rendered.</td></tr>
+            <tr><td><code>export_filename</code></td><td><code>Option&lt;&amp;'static str&gt;</code></td><td>Enables the export button. The value is the download filename.</td></tr>
+            <tr><td><code>persist_key</code></td><td><code>Option&lt;&amp;'static str&gt;</code></td><td>Saves column layout (order, widths, pins, hidden) under this key.</td></tr>
+            <tr><td><code>density</code></td><td><code>GridDensity</code></td><td><code>Full</code> (default) or <code>Minimal</code>, which strips the enterprise chrome.</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <p>
+        <code>persist_key</code> saves <em>layout</em> only. Search, filters, sort
+        and page are query state, not layout, and are intentionally not persisted —
+        a returning user should see the whole dataset arranged the way they left it,
+        not a stale filter they have forgotten about.
+      </p>
+
+      <h2 id="mutating"><a class="anchor" href="#mutating" aria-label="Link to this section">#</a>Handling edits and actions</h2>
+      <p>
+        The grid never mutates your rows. It shares them by <code>Rc</code>, so it
+        cannot; an inline edit or a destructive action fires an event and you apply
+        it to your own state. That keeps the grid out of your data flow entirely.
+      </p>
+
+      <div class="code">
+        <div class="code-head"><span class="code-dot"></span>Applying an edit</div>
+<pre><code><span class="k">let</span> <span class="k">mut</span> products = <span class="f">use_signal</span>(seed);
+
+<span class="f">rsx!</span> {
+    <span class="t">DataGrid</span> {
+        rows: std::rc::<span class="t">Rc</span>::<span class="f">from</span>(products()),
+        columns,
+        row_id: |p: &amp;<span class="t">Product</span>| p.id.<span class="f">to_string</span>(),
+        on_edit: <span class="k">move</span> |edit: grid_dioxus::<span class="t">CellEdit</span>&lt;<span class="t">Product</span>&gt;| {
+            <span class="k">if</span> edit.key == <span class="s">"name"</span> {
+                <span class="k">if</span> <span class="k">let</span> <span class="t">Some</span>(p) = products.<span class="f">write</span>().<span class="f">iter_mut</span>().<span class="f">find</span>(|x| x.id == edit.row.id) {
+                    p.name = edit.value.<span class="f">clone</span>();
+                }
+            }
+        },
+    }
+}</code></pre>
+      </div>
+
+      <p>
+        <code>CellEdit&lt;T&gt;</code> carries the <code>row</code>, the column
+        <code>key</code>, and the raw <code>value</code> string the user typed. You
+        parse it into your field — the grid has no idea what type the cell holds.
+      </p>
+
+      <h2 id="next"><a class="anchor" href="#next" aria-label="Link to this section">#</a>Next</h2>
+      <div class="cards">
+        <div class="card">
+          <h3><a href="columns.html">Columns</a></h3>
+          <p>Every builder on <code>GridColumn</code>, and which capability each one unlocks.</p>
+        </div>
+        <div class="card">
+          <h3><a href="sorting-filtering.html">Sorting &amp; filtering</a></h3>
+          <p>Tri-state sort, multi-sort, and the filter kinds.</p>
+        </div>
+        <div class="card">
+          <h3><a href="styling.html">Styling</a></h3>
+          <p>The class and state-attribute contract you write CSS against.</p>
+        </div>
+        <div class="card">
+          <h3><a href="demo.html">Live demo</a></h3>
+          <p>The example app running in the browser.</p>
+        </div>
+      </div>
+
+      <div class="pager">
+        <a href="index.html"><span>Previous</span>← Introduction</a>
+        <a class="next" href="columns.html"><span>Next</span>Columns →</a>
+      </div>
+
+      <p class="ftr">
+        Dual-licensed under MIT or Apache-2.0.
+        <a href="https://github.com/iamAhsanMalik/dioxus-grid">Source on GitHub</a>.
+      </p>
+    </div>
+  </main>
+
+  <nav class="toc" aria-label="On this page">
+    <p class="toc-title">On this page</p>
+    <ul>
+      <li><a href="#install">Install</a></li>
+      <li><a href="#first-grid">Your first grid</a></li>
+      <li><a href="#required-props">The three required props</a></li>
+      <li><a href="#rc-rows">Why rows is an Rc</a></li>
+      <li><a href="#fn-coercion">The fn-pointer coercion</a></li>
+      <li><a href="#common-props">Props you will reach for</a></li>
+      <li><a href="#mutating">Edits and actions</a></li>
+      <li><a href="#next">Next</a></li>
+    </ul>
+  </nav>
+
+</div>
+</body>
+</html>

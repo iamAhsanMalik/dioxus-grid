@@ -1,0 +1,368 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>grid-state — dioxus-grid</title>
+<meta name="description" content="Reference for grid-state: the GridState interaction controller, ViewMode, and the sort, paging and selection transitions a renderer drives.">
+<link rel="icon" href="assets/favicon.svg">
+<link rel="stylesheet" href="assets/docs.css">
+</head>
+<body>
+
+<input type="checkbox" id="navToggle" class="nav-toggle" hidden>
+
+<header class="hdr">
+  <label for="navToggle" class="nav-btn" aria-label="Toggle navigation">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 6h18M3 12h18M3 18h18"/></svg>
+  </label>
+
+  <a class="hdr-brand" href="index.html">
+    <svg viewBox="0 0 32 32" aria-hidden="true">
+      <rect width="32" height="32" rx="7" fill="var(--accent)"/>
+      <g fill="var(--accent-ink)">
+        <rect x="6" y="8" width="20" height="3.5" rx="1"/>
+        <rect x="6" y="14.25" width="20" height="3.5" rx="1" opacity=".7"/>
+        <rect x="6" y="20.5" width="20" height="3.5" rx="1" opacity=".45"/>
+      </g>
+    </svg>
+    dioxus-grid
+    <span class="hdr-ver">v0.1.0</span>
+  </a>
+
+  <nav class="hdr-nav">
+    <a href="quickstart.html">Quickstart</a>
+    <a href="demo.html">Demo</a>
+    <a href="https://github.com/iamAhsanMalik/dioxus-grid">GitHub</a>
+  </nav>
+</header>
+
+<div class="shell">
+
+  <aside class="nav">
+    <div class="nav-group">
+      <p class="nav-title">Guides</p>
+      <ul>
+        <li><a href="index.html">Introduction</a></li>
+        <li><a href="quickstart.html">Quickstart</a></li>
+        <li><a href="columns.html">Columns</a></li>
+        <li><a href="sorting-filtering.html">Sorting &amp; filtering</a></li>
+        <li><a href="selection-paging.html">Selection &amp; paging</a></li>
+        <li><a href="styling.html">Styling</a></li>
+        <li><a href="bundle-size.html">Bundle size</a></li>
+        <li><a href="demo.html">Live demo</a></li>
+      </ul>
+    </div>
+    <div class="nav-group">
+      <p class="nav-title">Crates</p>
+      <ul>
+        <li><a href="grid-core.html">grid-core</a></li>
+        <li><a href="grid-state.html" aria-current="page">grid-state</a></li>
+        <li><a href="grid-plugin-api.html">grid-plugin-api</a></li>
+        <li><a href="grid-dioxus.html">grid-dioxus</a></li>
+      </ul>
+    </div>
+  </aside>
+
+  <main class="main">
+    <div class="prose">
+      <p class="eyebrow">Crates</p>
+      <h1>grid-state</h1>
+      <p class="lead">
+        The interaction controller. Where
+        <a href="grid-core.html">grid-core</a> owns the data pipeline, this crate
+        owns the state machine around it: the live query, the selection set, the
+        view mode, and the intent methods a renderer calls when a user clicks
+        something. No UI and no framework — just the transitions, so they are
+        unit-testable and identical across renderers.
+        <code>#![forbid(unsafe_code)]</code>, 11 tests.
+      </p>
+
+      <h2 id="loop"><a class="anchor" href="#loop" aria-label="Link to this section">#</a>The render loop</h2>
+      <p>
+        The contract is a cycle, and it is worth internalising because it explains
+        why this crate holds no rows.
+      </p>
+      <ol>
+        <li>A renderer holds a <code>GridState</code>.</li>
+        <li>A user interacts; the renderer calls an <strong>intent</strong> method — <code>toggle_sort</code>, <code>next_page</code>, <code>toggle_row</code>.</li>
+        <li>The renderer reads <code>state.model()</code> and re-queries its <code>DataSource</code>.</li>
+        <li>It draws the returned <code>ResultSet</code>.</li>
+      </ol>
+      <p>
+        The state never touches your data. It describes <em>what to ask for</em>,
+        which is why a change of sort column and a change of page look identical
+        from the outside: mutate, re-query, redraw.
+      </p>
+
+      <h2 id="viewmode"><a class="anchor" href="#viewmode" aria-label="Link to this section">#</a>ViewMode</h2>
+      <p>List (row) versus card (gallery) presentation.</p>
+
+      <div class="code">
+        <div class="code-head"><span class="code-dot"></span>grid_state::ViewMode</div>
+<pre><code><span class="k">pub enum</span> <span class="t">ViewMode</span> { <span class="t">List</span>, <span class="t">Card</span> }
+
+<span class="k">impl</span> <span class="t">ViewMode</span> {
+    <span class="k">pub fn</span> <span class="f">is_card</span>(<span class="k">self</span>) -&gt; <span class="t">bool</span>;
+}</code></pre>
+      </div>
+
+      <p>
+        <code>is_card</code> lives on <code>ViewMode</code>, not on
+        <code>GridState</code>, so the idiomatic read is
+        <code>state.view().is_card()</code>. It is <code>Copy</code>, so there is
+        no borrow to juggle.
+      </p>
+
+      <h2 id="gridstate"><a class="anchor" href="#gridstate" aria-label="Link to this section">#</a>GridState</h2>
+      <p>
+        Three private fields — the query model, a <code>HashSet</code> of selected
+        ids, and the view mode. Private on purpose: every mutation goes through an
+        intent method so the invariants below cannot be bypassed by a renderer
+        setting a field directly.
+      </p>
+
+      <div class="code">
+        <div class="code-head"><span class="code-dot"></span>grid_state::GridState</div>
+<pre><code><span class="k">pub struct</span> <span class="t">GridState</span> { <span class="c">/* private */</span> }
+
+<span class="k">impl</span> <span class="t">GridState</span> {
+    <span class="c">// `default_card` picks the initial view; page_size is clamped to ≥ 1.</span>
+    <span class="k">pub fn</span> <span class="f">new</span>(page_size: <span class="t">usize</span>, default_card: <span class="t">bool</span>) -&gt; <span class="t">Self</span>;
+}</code></pre>
+      </div>
+
+      <h3>Reads</h3>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>Method</th><th>Returns</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>model()</code></td><td><code>&amp;QueryModel</code> — pass to a <code>DataSource</code> to materialise rows.</td></tr>
+            <tr><td><code>search()</code></td><td><code>&amp;str</code> — the current search text.</td></tr>
+            <tr><td><code>sort()</code></td><td><code>Option&lt;Sort&gt;</code> — a clone of the active sort.</td></tr>
+            <tr><td><code>page()</code></td><td><code>usize</code> — the zero-based page index.</td></tr>
+            <tr><td><code>page_size()</code></td><td><code>usize</code> — rows per page.</td></tr>
+            <tr><td><code>view()</code></td><td><code>ViewMode</code>.</td></tr>
+            <tr><td><code>sort_dir_for(key)</code></td><td><code>Option&lt;bool&gt;</code> — <code>Some(true)</code> ascending, <code>Some(false)</code> descending, <code>None</code> if this is not the sorted column.</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <p>
+        <code>sort_dir_for</code> is the one a header cell wants. It answers "am
+        <em>I</em> the sorted column, and which way" in a single call, so a renderer
+        does not have to unwrap the <code>Option&lt;Sort&gt;</code> and compare keys
+        per header.
+      </p>
+
+      <h3>Query intents</h3>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>Method</th><th>Effect</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>set_search(q)</code></td><td>Replace the search text. Resets to page 0.</td></tr>
+            <tr><td><code>clear_search()</code></td><td>Empty the search text. Resets to page 0.</td></tr>
+            <tr><td><code>toggle_sort(key)</code></td><td>Advance this column's tri-state sort. Resets to page 0.</td></tr>
+            <tr><td><code>set_view(view)</code></td><td>Switch list ⇄ card. Does <em>not</em> touch the page or selection.</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <p>
+        <code>toggle_sort</code> takes a <code>&amp;'static str</code>, matching the
+        <code>ColumnDef</code> key type, so no allocation happens on a header click.
+      </p>
+
+      <h3>Pagination intents</h3>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>Method</th><th>Effect</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>set_page(page)</code></td><td>Jump to a page. Unclamped here — see the note below.</td></tr>
+            <tr><td><code>next_page(page_count)</code></td><td>Step forward, staying inside <code>0..page_count</code>.</td></tr>
+            <tr><td><code>prev_page()</code></td><td>Step back, never below 0.</td></tr>
+            <tr><td><code>set_page_size(n)</code></td><td>Change rows-per-page, clamped to at least 1. Resets to page 0.</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="note">
+        <div>
+          <strong><code>set_page</code> accepts anything; the source clamps.</strong>
+          The state does not know <code>page_count</code> — that comes out of a
+          query, and holding a stale copy of it is worse than not holding one. So
+          <code>set_page</code> stores what you gave it and
+          <code>ClientSource</code> clamps into range when it runs, reporting the
+          effective page back on the <code>ResultSet</code>. <code>next_page</code>
+          is the exception: it takes <code>page_count</code> as an argument because
+          "one more, unless that is past the end" cannot be expressed otherwise.
+        </div>
+      </div>
+
+      <h3>Selection intents</h3>
+      <p>
+        Selection is keyed by the grid's <code>row_id</code> string, not by index,
+        so it survives sorting, filtering and paging. Selecting a row on page 1 and
+        then jumping to page 4 keeps that row selected — which is what makes the
+        bulk-action bar's count meaningful.
+      </p>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>Method</th><th>Effect</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>is_selected(id)</code></td><td><code>bool</code> — is this row in the set.</td></tr>
+            <tr><td><code>selection_count()</code></td><td><code>usize</code> — total selected, across all pages.</td></tr>
+            <tr><td><code>selected_ids()</code></td><td><code>Vec&lt;String&gt;</code>, <strong>unordered</strong> — it comes from a <code>HashSet</code>. Sort at the call site if display order matters.</td></tr>
+            <tr><td><code>is_page_selected(page_ids)</code></td><td><code>bool</code> — every id on the page is selected <em>and</em> the page is non-empty.</td></tr>
+            <tr><td><code>toggle_row(id)</code></td><td>Flip one row's membership.</td></tr>
+            <tr><td><code>toggle_page(page_ids)</code></td><td>Select the whole page, or deselect it if already fully selected.</td></tr>
+            <tr><td><code>clear_selection()</code></td><td>Empty the set.</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h2 id="transitions"><a class="anchor" href="#transitions" aria-label="Link to this section">#</a>The transitions worth knowing</h2>
+      <p>
+        These are the behaviors that would otherwise be reimplemented — subtly
+        differently — in every renderer. They live here precisely so they are
+        pinned by tests.
+      </p>
+
+      <h3>Sort cycles through three states</h3>
+      <p>
+        Clicking the same header goes <strong>ascending → descending →
+        unsorted</strong>, then back to ascending. Clicking a <em>different</em>
+        column jumps straight to ascending rather than continuing the previous
+        column's cycle.
+      </p>
+
+      <div class="code">
+        <div class="code-head"><span class="code-dot"></span>tri-state sort</div>
+<pre><code><span class="k">let mut</span> s = <span class="t">GridState</span>::<span class="f">new</span>(<span class="n">10</span>, <span class="k">false</span>);
+
+s.<span class="f">toggle_sort</span>(<span class="s">"name"</span>);   <span class="c">// Some(Sort::asc("name"))</span>
+s.<span class="f">toggle_sort</span>(<span class="s">"name"</span>);   <span class="c">// Some(Sort::desc("name"))</span>
+s.<span class="f">toggle_sort</span>(<span class="s">"name"</span>);   <span class="c">// None — unsorted</span>
+
+s.<span class="f">toggle_sort</span>(<span class="s">"name"</span>);   <span class="c">// asc again</span>
+s.<span class="f">toggle_sort</span>(<span class="s">"score"</span>);  <span class="c">// a NEW column starts at asc, not desc</span></code></pre>
+      </div>
+
+      <p>
+        Unsorted is a real third state, not a quirk. It is how a user gets back to
+        the dataset's natural order — insertion order, or whatever the server sent —
+        which is often meaningful and otherwise unreachable once they have sorted
+        anything.
+      </p>
+
+      <h3>Query changes reset the page</h3>
+      <p>
+        <code>set_search</code>, <code>clear_search</code>,
+        <code>toggle_sort</code> and <code>set_page_size</code> all snap back to
+        page 0. If they did not, a user on page 7 who types a search that matches
+        four rows would land on an empty page and conclude there were no results.
+      </p>
+      <p>
+        <code>set_view</code> is deliberately <em>not</em> in that list. Switching
+        between table and gallery is a presentation change over the same rows, so
+        losing your place would be a bug.
+      </p>
+
+      <h3>Page selection toggles as a unit</h3>
+      <p>
+        <code>toggle_page</code> looks at whether the page is <em>already
+        fully</em> selected. If it is, it deselects those ids; otherwise it selects
+        all of them. So a partially selected page tops up to full rather than
+        clearing — the behavior a user expects from a header checkbox, and the
+        reason the header control's label flips between "Select" and "Deselect".
+      </p>
+      <p>
+        An empty page is never considered fully selected, so
+        <code>is_page_selected(&amp;[])</code> is <code>false</code> and the header
+        checkbox on an empty grid does not read as checked.
+      </p>
+
+      <div class="code">
+        <div class="code-head"><span class="code-dot"></span>page selection</div>
+<pre><code><span class="k">let</span> page = <span class="f">vec!</span>[<span class="s">"a"</span>.<span class="f">to_string</span>(), <span class="s">"b"</span>.<span class="f">to_string</span>()];
+
+s.<span class="f">toggle_row</span>(<span class="s">"b"</span>);          <span class="c">// partial: 1 of 2</span>
+s.<span class="f">toggle_page</span>(&amp;page);      <span class="c">// not full → select all → 2 of 2</span>
+s.<span class="f">toggle_page</span>(&amp;page);      <span class="c">// full → deselect page → 0</span></code></pre>
+      </div>
+
+      <h3>Paging is clamped at both ends</h3>
+      <p>
+        <code>prev_page</code> at page 0 is a no-op, and
+        <code>next_page(count)</code> on the last page is a no-op. Neither
+        underflows, which matters because <code>page</code> is a
+        <code>usize</code>.
+      </p>
+
+      <h2 id="usage"><a class="anchor" href="#usage" aria-label="Link to this section">#</a>Driving it yourself</h2>
+      <p>
+        If you are building your own renderer, the whole integration is a state
+        value, an intent call, and a re-query.
+      </p>
+
+      <div class="code">
+        <div class="code-head"><span class="code-dot"></span>a renderer's frame</div>
+<pre><code><span class="k">use</span> grid_state::{<span class="t">GridState</span>, <span class="t">ViewMode</span>};
+
+<span class="c">// held across frames</span>
+<span class="k">let mut</span> state = <span class="t">GridState</span>::<span class="f">new</span>(<span class="n">25</span>, <span class="k">false</span>);
+
+<span class="c">// on a header click</span>
+state.<span class="f">toggle_sort</span>(<span class="s">"name"</span>);
+
+<span class="c">// draw</span>
+<span class="k">let</span> page = source.<span class="f">query</span>(state.<span class="f">model</span>());
+<span class="k">let</span> ids: <span class="t">Vec</span>&lt;<span class="t">String</span>&gt; = page.rows.<span class="f">iter</span>().<span class="f">map</span>(row_id).<span class="f">collect</span>();
+
+<span class="k">let</span> header_dir  = state.<span class="f">sort_dir_for</span>(<span class="s">"name"</span>);      <span class="c">// aria-sort / data-sorted</span>
+<span class="k">let</span> all_checked = state.<span class="f">is_page_selected</span>(&amp;ids);   <span class="c">// header checkbox</span>
+<span class="k">let</span> as_cards    = state.<span class="f">view</span>().<span class="f">is_card</span>();</code></pre>
+      </div>
+
+      <p>
+        Note that the ids handed to <code>is_page_selected</code> and
+        <code>toggle_page</code> are the ids of the <em>currently visible</em>
+        page, recomputed each frame from the query result. The state does not cache
+        them, so the header checkbox is always about what is actually on screen.
+      </p>
+
+      <div class="pager">
+        <a href="grid-core.html"><span>Previous</span>← grid-core</a>
+        <a class="next" href="grid-plugin-api.html"><span>Next</span>grid-plugin-api →</a>
+      </div>
+
+      <p class="ftr">
+        Dual-licensed under MIT or Apache-2.0.
+        <a href="https://github.com/iamAhsanMalik/dioxus-grid">Source on GitHub</a>.
+      </p>
+    </div>
+  </main>
+
+  <nav class="toc" aria-label="On this page">
+    <p class="toc-title">On this page</p>
+    <ul>
+      <li><a href="#loop">The render loop</a></li>
+      <li><a href="#viewmode">ViewMode</a></li>
+      <li><a href="#gridstate">GridState</a></li>
+      <li><a href="#transitions">The transitions</a></li>
+      <li><a href="#usage">Driving it yourself</a></li>
+    </ul>
+  </nav>
+
+</div>
+</body>
+</html>

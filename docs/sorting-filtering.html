@@ -1,0 +1,456 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sorting &amp; filtering — dioxus-grid</title>
+<meta name="description" content="Tri-state column sort, shift-click multi-sort, global search, the per-column filter kinds and the FilterOp operators behind them.">
+<link rel="icon" href="assets/favicon.svg">
+<link rel="stylesheet" href="assets/docs.css">
+</head>
+<body>
+
+<input type="checkbox" id="navToggle" class="nav-toggle" hidden>
+
+<header class="hdr">
+  <label for="navToggle" class="nav-btn" aria-label="Toggle navigation">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 6h18M3 12h18M3 18h18"/></svg>
+  </label>
+
+  <a class="hdr-brand" href="index.html">
+    <svg viewBox="0 0 32 32" aria-hidden="true">
+      <rect width="32" height="32" rx="7" fill="var(--accent)"/>
+      <g fill="var(--accent-ink)">
+        <rect x="6" y="8" width="20" height="3.5" rx="1"/>
+        <rect x="6" y="14.25" width="20" height="3.5" rx="1" opacity=".7"/>
+        <rect x="6" y="20.5" width="20" height="3.5" rx="1" opacity=".45"/>
+      </g>
+    </svg>
+    dioxus-grid
+    <span class="hdr-ver">v0.1.0</span>
+  </a>
+
+  <nav class="hdr-nav">
+    <a href="quickstart.html">Quickstart</a>
+    <a href="demo.html">Demo</a>
+    <a href="https://github.com/iamAhsanMalik/dioxus-grid">GitHub</a>
+  </nav>
+</header>
+
+<div class="shell">
+
+  <aside class="nav">
+    <div class="nav-group">
+      <p class="nav-title">Guides</p>
+      <ul>
+        <li><a href="index.html">Introduction</a></li>
+        <li><a href="quickstart.html">Quickstart</a></li>
+        <li><a href="columns.html">Columns</a></li>
+        <li><a href="sorting-filtering.html" aria-current="page">Sorting &amp; filtering</a></li>
+        <li><a href="selection-paging.html">Selection &amp; paging</a></li>
+        <li><a href="styling.html">Styling</a></li>
+        <li><a href="bundle-size.html">Bundle size</a></li>
+        <li><a href="demo.html">Live demo</a></li>
+      </ul>
+    </div>
+    <div class="nav-group">
+      <p class="nav-title">Crates</p>
+      <ul>
+        <li><a href="grid-core.html">grid-core</a></li>
+        <li><a href="grid-state.html">grid-state</a></li>
+        <li><a href="grid-plugin-api.html">grid-plugin-api</a></li>
+        <li><a href="grid-dioxus.html">grid-dioxus</a></li>
+      </ul>
+    </div>
+  </aside>
+
+  <main class="main">
+    <div class="prose">
+      <p class="eyebrow">Guides</p>
+      <h1>Sorting &amp; filtering</h1>
+      <p class="lead">
+        Search narrows, filters narrow further, then sort orders what is left and
+        pagination windows it. All four run over the same column projections, in that
+        order, in pure code you can unit test without a browser.
+      </p>
+
+      <h2 id="pipeline"><a class="anchor" href="#pipeline" aria-label="Link to this section">#</a>The pipeline</h2>
+      <p>
+        Every frame the grid assembles a <code>GridQuery</code> from its UI state and
+        hands it to a provider, which answers with one <code>GridPage</code>:
+      </p>
+
+      <div class="code">
+        <div class="code-head"><span class="code-dot"></span>Order of operations</div>
+<pre><code>global search  →  column filters  →  sort  →  paginate</code></pre>
+      </div>
+
+      <p>
+        The order matters for the numbers you see. Footer aggregates are computed
+        after filtering and before pagination, so a total reflects every matching row
+        rather than the visible page. Pagination is last, which is why changing a
+        filter can move you onto a page that no longer exists — the page index is
+        clamped into range rather than left dangling.
+      </p>
+      <p>
+        The query is memoized. It re-runs only when a query-defining signal changes —
+        search, filters, sort, page, page size, or the dataset — never on scroll,
+        hover or a menu toggle. That is what keeps a very large grid from re-filtering
+        on every frame.
+      </p>
+
+      <h2 id="search"><a class="anchor" href="#search" aria-label="Link to this section">#</a>Global search</h2>
+      <p>
+        Search is a single case-insensitive substring test against one string per
+        row, which you supply:
+      </p>
+
+      <div class="code">
+        <div class="code-head"><span class="code-dot"></span>The search haystack</div>
+<pre><code><span class="t">DataGrid</span> {
+    rows,
+    columns,
+    row_id: |p: &amp;<span class="t">Product</span>| p.id.<span class="f">to_string</span>(),
+    search_text: <span class="t">Some</span>((|p: &amp;<span class="t">Product</span>| <span class="f">format!</span>(<span class="s">"{} {} {}"</span>, p.name, p.sku, p.category))
+        <span class="k">as</span> <span class="k">fn</span>(&amp;<span class="t">Product</span>) -&gt; <span class="t">String</span>),
+}</code></pre>
+      </div>
+
+      <p>
+        One projection, not one per column, because that is what users mean by a
+        search box: type anything, match anywhere. You decide what is searchable by
+        deciding what goes into the string — including fields you never render, which
+        is a cheap way to make internal identifiers findable.
+      </p>
+      <p>
+        Omitting <code>search_text</code> hides the search box entirely rather than
+        rendering a box that does nothing.
+      </p>
+
+      <h2 id="sorting"><a class="anchor" href="#sorting" aria-label="Link to this section">#</a>Column sort</h2>
+      <p>
+        Clicking a header cycles that column tri-state, and clicking a
+        <em>different</em> column jumps straight to ascending:
+      </p>
+
+      <div class="code">
+        <div class="code-head"><span class="code-dot"></span>Tri-state cycle</div>
+<pre><code>unsorted  →  ascending  →  descending  →  unsorted</code></pre>
+      </div>
+
+      <p>
+        The third click returning to unsorted is the part people forget to build. It
+        matters because a dataset's natural order — insertion, relevance, whatever
+        your <code>Vec</code> holds — is real information, and without an "off" state
+        a user who sorts once can never get back to it.
+      </p>
+      <p>
+        Sorting always resets to page 0. Staying on page 7 of a freshly reordered
+        list shows you rows that have nothing to do with what you clicked.
+      </p>
+      <p>The state machine lives in <a href="grid-state.html"><code>grid-state</code></a> and is directly testable:</p>
+
+      <div class="code">
+        <div class="code-head"><span class="code-dot"></span>Driving GridState by hand</div>
+<pre><code><span class="k">use</span> grid_state::<span class="t">GridState</span>;
+
+<span class="k">let</span> <span class="k">mut</span> s = <span class="t">GridState</span>::<span class="f">new</span>(<span class="n">10</span>, <span class="k">false</span>);
+s.<span class="f">set_page</span>(<span class="n">3</span>);
+s.<span class="f">toggle_sort</span>(<span class="s">"name"</span>);              <span class="c">// ascending, and page → 0</span>
+<span class="f">assert_eq!</span>(s.<span class="f">sort_dir_for</span>(<span class="s">"name"</span>), <span class="t">Some</span>(<span class="k">true</span>));
+s.<span class="f">toggle_sort</span>(<span class="s">"name"</span>);              <span class="c">// descending</span>
+<span class="f">assert_eq!</span>(s.<span class="f">sort_dir_for</span>(<span class="s">"name"</span>), <span class="t">Some</span>(<span class="k">false</span>));
+s.<span class="f">toggle_sort</span>(<span class="s">"name"</span>);              <span class="c">// off</span>
+<span class="f">assert_eq!</span>(s.<span class="f">sort</span>(), <span class="t">None</span>);</code></pre>
+      </div>
+
+      <p>
+        <code>sort_dir_for(key)</code> returns <code>Some(true)</code> for ascending,
+        <code>Some(false)</code> for descending and <code>None</code> when that column
+        is not the sorted one — which is exactly what a header needs to pick its
+        indicator.
+      </p>
+
+      <h2 id="multi-sort"><a class="anchor" href="#multi-sort" aria-label="Link to this section">#</a>Multi-column sort</h2>
+      <p>
+        Shift-clicking a header adds it as a tie-breaker after the primary sort,
+        cycling ascending → descending → removed, leaving the primary untouched. A
+        plain click sets the primary and clears the tie-breakers, so there is always
+        an obvious way back to a simple sort.
+      </p>
+      <p>
+        Underneath, this builds a <code>MultiSort</code> whose comparators are
+        applied left to right, the first being primary. Grouping prepends the group
+        column so same-value rows stay contiguous; your sort then orders rows within
+        each group.
+      </p>
+
+      <div class="code">
+        <div class="code-head"><span class="code-dot"></span>Composing sorts directly</div>
+<pre><code><span class="k">use</span> grid_plugin_api::{<span class="t">MultiSort</span>, <span class="t">Sort</span>};
+
+<span class="k">let</span> sort = <span class="t">MultiSort</span>::<span class="f">new</span>()
+    .<span class="f">then</span>(<span class="t">Sort</span>::<span class="f">asc</span>(<span class="s">"department"</span>))
+    .<span class="f">then</span>(<span class="t">Sort</span>::<span class="f">desc</span>(<span class="s">"salary"</span>));</code></pre>
+      </div>
+
+      <p>
+        Sorting is stable, so equal rows keep their previous relative order. A column
+        with no projection is skipped in the comparison rather than treated as equal.
+      </p>
+
+      <h2 id="filters"><a class="anchor" href="#filters" aria-label="Link to this section">#</a>Per-column filters</h2>
+      <p>
+        Each filterable header carries a funnel that opens a popover — a bottom sheet
+        on mobile. A column is filterable when it has a projection, meaning any
+        column you made sortable is filterable already. Active filters appear as
+        chips above the table so a narrowed grid never looks like an empty one.
+      </p>
+      <p>
+        Filters combine with AND by default: a row must satisfy every active column
+        filter.
+      </p>
+
+      <div class="note">
+        <div>
+          <strong>Filtering a hidden column still works.</strong>
+          The column chooser hides, it never removes. A hidden column's filter and
+          sort keep applying, and it still appears in exports — otherwise "tidy up
+          the view" would silently change your results.
+        </div>
+      </div>
+
+      <h2 id="filter-kinds"><a class="anchor" href="#filter-kinds" aria-label="Link to this section">#</a>FilterKind</h2>
+      <p>
+        The control shown in the popover is inferred from the column, and you can set
+        it explicitly with <code>.filter(FilterKind::…)</code>. All kinds drive the
+        same underlying filter stage over the same projection; only the input differs.
+      </p>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>Variant</th><th>Control</th><th>Use for</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>Auto</code></td><td>Inferred: <code>Number</code> if the column has a numeric projection, else <code>Text</code>.</td><td>The default; usually right.</td></tr>
+            <tr><td><code>Text</code></td><td>Operator picker plus a text input.</td><td>Names, descriptions, free text.</td></tr>
+            <tr><td><code>Number</code></td><td>Operator picker plus a number input.</td><td>Quantities, prices, counts.</td></tr>
+            <tr><td><code>Set</code></td><td>Checkbox list of the column's distinct values.</td><td>Enums: status, department, category.</td></tr>
+            <tr><td><code>Range</code></td><td>Two optional numeric bounds, min and max.</td><td>Duration, file size, price bands.</td></tr>
+            <tr><td><code>DateRange</code></td><td>Two date pickers, from and to.</td><td>ISO <code>YYYY-MM-DD</code> date columns.</td></tr>
+            <tr><td><code>Rating</code></td><td>A 0–5 star picker meaning "at least N".</td><td>Review scores.</td></tr>
+            <tr><td><code>HasValue</code></td><td>A present / absent toggle.</td><td>Attachments, optional media, nullable fields.</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="code">
+        <div class="code-head"><span class="code-dot"></span>Choosing filter controls</div>
+<pre><code><span class="k">use</span> grid_dioxus::{<span class="t">FilterKind</span>, <span class="t">GridColumn</span>};
+
+<span class="k">let</span> columns = <span class="f">vec!</span>[
+    <span class="c">// Distinct values become checkboxes — the natural control for an enum.</span>
+    <span class="t">GridColumn</span>::<span class="f">new</span>(<span class="s">"category"</span>, <span class="s">"Category"</span>, |p: &amp;<span class="t">Product</span>| <span class="f">rsx!</span> { <span class="s">"{p.category}"</span> })
+        .<span class="f">sortable</span>(|p: &amp;<span class="t">Product</span>| p.category.<span class="f">clone</span>())
+        .<span class="f">filter</span>(<span class="t">FilterKind</span>::<span class="t">Set</span>),
+
+    <span class="c">// A min–max band reads better than "&gt;" then "&lt;" as two separate filters.</span>
+    <span class="t">GridColumn</span>::<span class="f">new</span>(<span class="s">"price"</span>, <span class="s">"Price"</span>, |p: &amp;<span class="t">Product</span>| <span class="f">rsx!</span> { <span class="s">"${p.price:.2}"</span> })
+        .<span class="f">sortable_num</span>(|p: &amp;<span class="t">Product</span>| p.price)
+        .<span class="f">filter</span>(<span class="t">FilterKind</span>::<span class="t">Range</span>),
+
+    <span class="c">// An empty projection means "absent", so a plain String works.</span>
+    <span class="t">GridColumn</span>::<span class="f">new</span>(<span class="s">"spec"</span>, <span class="s">"Datasheet"</span>, |p: &amp;<span class="t">Product</span>| <span class="f">rsx!</span> { <span class="s">"{p.spec_file}"</span> })
+        .<span class="f">sortable</span>(|p: &amp;<span class="t">Product</span>| p.spec_file.<span class="f">clone</span>())
+        .<span class="f">filter</span>(<span class="t">FilterKind</span>::<span class="t">HasValue</span>),
+];</code></pre>
+      </div>
+
+      <p>
+        <code>Set</code> derives its choices from the dataset, sorted and
+        de-duplicated, and caps the list so a high-cardinality column cannot render
+        thousands of checkboxes. It needs a text projection —
+        <code>.sortable(…)</code> — because it lists values as strings.
+      </p>
+      <div class="note note-warn">
+        <div>
+          <strong>A <code>Set</code> filter needs <code>.sortable()</code>, not
+          <code>.sortable_num()</code>.</strong>
+          The checklist is built from the string sort key, so a column that only
+          declares a numeric key has nothing to enumerate and the popover renders
+          “No values” with no error. If you wanted a custom order — say status by
+          workflow stage rather than alphabetically — you have to choose: numeric
+          sorting, or a <code>Set</code> filter. One column cannot have both.
+        </div>
+      </div>
+      <p>
+        <code>DateRange</code> compares lexicographically over the text projection,
+        which is chronological precisely because ISO <code>YYYY-MM-DD</code> sorts
+        that way. Project your dates in that format and range filtering is free; a
+        localised string like <code>"25/07/2026"</code> will not order correctly.
+      </p>
+      <p>
+        Date pickers need to know what "today" is, and the grid keeps itself
+        clock-free so it stays deterministic. Pass <code>today</code> as an ISO
+        string if you want the presets and the today marker to be correct:
+      </p>
+
+      <div class="code">
+        <div class="code-head"><span class="code-dot"></span>Supplying the clock</div>
+<pre><code><span class="t">DataGrid</span> {
+    rows,
+    columns,
+    row_id: |o: &amp;<span class="t">Order</span>| o.id.<span class="f">to_string</span>(),
+    today: <span class="t">Some</span>(<span class="s">"2026-07-25"</span>.<span class="f">to_string</span>()),
+}</code></pre>
+      </div>
+
+      <h2 id="operators"><a class="anchor" href="#operators" aria-label="Link to this section">#</a>Operators</h2>
+      <p>
+        The text and number controls offer a subset of <code>FilterOp</code> chosen to
+        suit the column: comparison operators for numeric columns, substring
+        operators for text, equality and emptiness for both. The full set, from
+        <a href="grid-plugin-api.html"><code>grid-plugin-api</code></a>:
+      </p>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>Operator</th><th>Meaning</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>Equals</code></td><td>Cell equals the operand.</td></tr>
+            <tr><td><code>NotEquals</code></td><td>Cell differs from the operand.</td></tr>
+            <tr><td><code>Contains</code></td><td>Case-insensitive substring. Non-text cells never match.</td></tr>
+            <tr><td><code>StartsWith</code></td><td>Case-insensitive prefix.</td></tr>
+            <tr><td><code>GreaterThan</code></td><td>Ordered comparison.</td></tr>
+            <tr><td><code>GreaterOrEqual</code></td><td>Ordered comparison.</td></tr>
+            <tr><td><code>LessThan</code></td><td>Ordered comparison.</td></tr>
+            <tr><td><code>LessOrEqual</code></td><td>Ordered comparison.</td></tr>
+            <tr><td><code>IsEmpty</code></td><td>Cell is empty. Blank or whitespace-only text counts as empty. Ignores the operand.</td></tr>
+            <tr><td><code>IsNotEmpty</code></td><td>Cell has content. Ignores the operand.</td></tr>
+            <tr><td><code>In</code></td><td>Cell equals any member of a value set. An empty set matches nothing.</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <p>
+        <code>IsEmpty</code> treating whitespace-only text as empty is what lets a
+        column expose presence with a plain <code>String</code> projection —
+        <code>""</code> for absent — rather than needing a typed cell value. It is
+        the mechanism behind <code>FilterKind::HasValue</code>.
+      </p>
+      <p>
+        The richer kinds compile down to these same operators: <code>Range</code>
+        becomes up to two comparisons, <code>Rating</code> a single
+        <code>GreaterOrEqual</code>, <code>Set</code> one <code>In</code>. There is
+        one filter engine, not eight.
+      </p>
+
+      <h2 id="programmatic"><a class="anchor" href="#programmatic" aria-label="Link to this section">#</a>Building filters in code</h2>
+      <p>
+        The headless crates are usable on their own — for tests, for a server-side
+        implementation of the same query, or for a non-Dioxus front end.
+      </p>
+
+      <div class="code">
+        <div class="code-head"><span class="code-dot"></span>A filter model by hand</div>
+<pre><code><span class="k">use</span> grid_plugin_api::{<span class="t">CellValue</span>, <span class="t">Filter</span>, <span class="t">FilterModel</span>, <span class="t">FilterOp</span>};
+
+<span class="c">// ANDed by default.</span>
+<span class="k">let</span> model = <span class="t">FilterModel</span>::<span class="f">new</span>()
+    .<span class="f">with</span>(<span class="t">Filter</span>::<span class="f">contains</span>(<span class="s">"name"</span>, <span class="s">"widget"</span>))
+    .<span class="f">with</span>(<span class="t">Filter</span>::<span class="f">greater_than</span>(<span class="s">"price"</span>, <span class="t">CellValue</span>::<span class="t">Number</span>(<span class="n">100.0</span>)));
+
+<span class="c">// A set filter, and an OR combination.</span>
+<span class="k">let</span> either = <span class="t">FilterModel</span>::<span class="f">new</span>()
+    .<span class="f">with</span>(<span class="t">Filter</span>::<span class="f">one_of</span>(<span class="s">"department"</span>, <span class="f">vec!</span>[<span class="s">"eng"</span>.<span class="f">into</span>(), <span class="s">"ops"</span>.<span class="f">into</span>()]))
+    .<span class="f">with</span>(<span class="t">Filter</span>::<span class="f">new</span>(<span class="s">"note"</span>, <span class="t">FilterOp</span>::<span class="t">IsNotEmpty</span>, <span class="t">CellValue</span>::<span class="t">Empty</span>))
+    .<span class="f">any</span>();</code></pre>
+      </div>
+
+      <p>
+        A filter naming a column that does not exist, or one with no projection, is
+        inert — it is skipped, not treated as matching nothing. Dropping every row
+        because of a typo in a key is the worse failure mode.
+      </p>
+
+      <h2 id="remote"><a class="anchor" href="#remote" aria-label="Link to this section">#</a>Server-side querying</h2>
+      <p>
+        Past what a browser can hold, move the pipeline to the server. Supply
+        <code>on_query</code> and the grid stops querying <code>rows</code>: it emits
+        the effective <code>GridQuery</code> on every change and renders whatever page
+        you feed back through <code>remote_page</code>.
+      </p>
+
+      <div class="code">
+        <div class="code-head"><span class="code-dot"></span>Remote mode</div>
+<pre><code><span class="k">use</span> grid_dioxus::{<span class="t">GridPage</span>, <span class="t">GridQuery</span>};
+
+<span class="k">let</span> <span class="k">mut</span> page = <span class="f">use_signal</span>(|| <span class="t">None</span>::&lt;<span class="t">GridPage</span>&lt;<span class="t">Product</span>&gt;&gt;);
+
+<span class="f">rsx!</span> {
+    <span class="t">DataGrid</span> {
+        rows: std::rc::<span class="t">Rc</span>::<span class="f">from</span>(<span class="f">vec!</span>[]),   <span class="c">// unused in remote mode</span>
+        columns,
+        row_id: |p: &amp;<span class="t">Product</span>| p.id.<span class="f">to_string</span>(),
+        on_query: <span class="k">move</span> |q: <span class="t">GridQuery</span>| {
+            <span class="f">spawn</span>(<span class="k">async</span> <span class="k">move</span> {
+                page.<span class="f">set</span>(<span class="f">fetch_products</span>(q).<span class="k">await</span>.<span class="f">ok</span>());
+            });
+        },
+        remote_page: page(),
+        loading: page().<span class="f">is_none</span>(),
+    }
+}</code></pre>
+      </div>
+
+      <p>
+        <code>GridQuery</code> and <code>GridPage</code> are the same types the local
+        provider uses, so switching a grid from in-memory to server-side is a provider
+        swap and not a renderer change. With the <code>serde</code> feature on
+        <code>grid-plugin-api</code>, <code>GridQuery</code> serialises directly —
+        your endpoint can accept it verbatim.
+      </p>
+
+      <div class="note note-warn">
+        <div>
+          <strong>Validate the query on the server.</strong>
+          A <code>GridQuery</code> arriving over the wire is user input. Check the
+          column keys against a whitelist and cap <code>page_size</code> before it
+          reaches your database, exactly as you would with any other query
+          parameters.
+        </div>
+      </div>
+
+      <div class="pager">
+        <a href="columns.html"><span>Previous</span>← Columns</a>
+        <a class="next" href="selection-paging.html"><span>Next</span>Selection &amp; paging →</a>
+      </div>
+
+      <p class="ftr">
+        Dual-licensed under MIT or Apache-2.0.
+        <a href="https://github.com/iamAhsanMalik/dioxus-grid">Source on GitHub</a>.
+      </p>
+    </div>
+  </main>
+
+  <nav class="toc" aria-label="On this page">
+    <p class="toc-title">On this page</p>
+    <ul>
+      <li><a href="#pipeline">The pipeline</a></li>
+      <li><a href="#search">Global search</a></li>
+      <li><a href="#sorting">Column sort</a></li>
+      <li><a href="#multi-sort">Multi-column sort</a></li>
+      <li><a href="#filters">Per-column filters</a></li>
+      <li><a href="#filter-kinds">FilterKind</a></li>
+      <li><a href="#operators">Operators</a></li>
+      <li><a href="#programmatic">Building filters in code</a></li>
+      <li><a href="#remote">Server-side querying</a></li>
+    </ul>
+  </nav>
+
+</div>
+</body>
+</html>

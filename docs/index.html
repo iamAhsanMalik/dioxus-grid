@@ -1,0 +1,190 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>dioxus-grid — a headless data grid for Rust</title>
+<meta name="description" content="A headless, framework-agnostic data grid engine for Rust, with a Dioxus renderer. Sorting, filtering, pagination, selection and grouping, with no styling shipped.">
+<link rel="icon" href="assets/favicon.svg">
+<link rel="stylesheet" href="assets/docs.css">
+</head>
+<body>
+
+<input type="checkbox" id="navToggle" class="nav-toggle" hidden>
+
+<header class="hdr">
+  <label for="navToggle" class="nav-btn" aria-label="Toggle navigation">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 6h18M3 12h18M3 18h18"/></svg>
+  </label>
+
+  <a class="hdr-brand" href="index.html">
+    <svg viewBox="0 0 32 32" aria-hidden="true">
+      <rect width="32" height="32" rx="7" fill="var(--accent)"/>
+      <g fill="var(--accent-ink)">
+        <rect x="6" y="8" width="20" height="3.5" rx="1"/>
+        <rect x="6" y="14.25" width="20" height="3.5" rx="1" opacity=".7"/>
+        <rect x="6" y="20.5" width="20" height="3.5" rx="1" opacity=".45"/>
+      </g>
+    </svg>
+    dioxus-grid
+    <span class="hdr-ver">v0.1.0</span>
+  </a>
+
+  <nav class="hdr-nav">
+    <a href="quickstart.html">Quickstart</a>
+    <a href="demo.html">Demo</a>
+    <a href="https://github.com/iamAhsanMalik/dioxus-grid">GitHub</a>
+  </nav>
+</header>
+
+<div class="shell">
+
+  <aside class="nav">
+    <div class="nav-group">
+      <p class="nav-title">Guides</p>
+      <ul>
+        <li><a href="index.html" aria-current="page">Introduction</a></li>
+        <li><a href="quickstart.html">Quickstart</a></li>
+        <li><a href="columns.html">Columns</a></li>
+        <li><a href="sorting-filtering.html">Sorting &amp; filtering</a></li>
+        <li><a href="selection-paging.html">Selection &amp; paging</a></li>
+        <li><a href="styling.html">Styling</a></li>
+        <li><a href="bundle-size.html">Bundle size</a></li>
+        <li><a href="demo.html">Live demo</a></li>
+      </ul>
+    </div>
+    <div class="nav-group">
+      <p class="nav-title">Crates</p>
+      <ul>
+        <li><a href="grid-core.html">grid-core</a></li>
+        <li><a href="grid-state.html">grid-state</a></li>
+        <li><a href="grid-plugin-api.html">grid-plugin-api</a></li>
+        <li><a href="grid-dioxus.html">grid-dioxus</a></li>
+      </ul>
+    </div>
+  </aside>
+
+  <main class="main">
+    <div class="prose hero">
+      <p class="eyebrow">Documentation</p>
+      <h1>A headless data grid for Rust.</h1>
+      <p class="lead">
+        The engine is framework-agnostic; the renderer targets Dioxus. Sorting,
+        per-column filters, pagination, selection, grouping, inline editing and
+        CSV export — with no styling shipped, so the grid looks like your app
+        rather than like a widget library.
+      </p>
+
+      <div class="btns">
+        <a class="btn" href="quickstart.html">Quickstart</a>
+        <a class="btn btn-ghost" href="demo.html">See it running</a>
+      </div>
+
+      <h2 id="install"><a class="anchor" href="#install" aria-label="Link to this section">#</a>Install</h2>
+      <p>
+        One dependency is enough. <code>grid-dioxus</code> re-exports the three
+        headless crates, so you do not need to add them yourself.
+      </p>
+
+      <div class="code">
+        <div class="code-head"><span class="code-dot"></span>Cargo.toml</div>
+<pre><code>[<span class="t">dependencies</span>]
+<span class="f">grid-dioxus</span> = { <span class="t">version</span> = <span class="s">"0.1"</span>, <span class="t">features</span> = [<span class="s">"web"</span>] }</code></pre>
+      </div>
+
+      <p>Requires Rust 1.85 or newer.</p>
+
+      <h2 id="how-it-fits"><a class="anchor" href="#how-it-fits" aria-label="Link to this section">#</a>How it fits together</h2>
+      <p>
+        The data operations, the interaction state and the rendering are three
+        separate concerns, in three separate crates. That split is the reason the
+        engine can be unit tested without a browser, and the reason a non-Dioxus
+        front end only needs <code>grid-core</code>.
+      </p>
+
+      <div class="cards">
+        <div class="card">
+          <h3><a href="grid-core.html">grid-core</a></h3>
+          <p>Column definitions, the query model, and the filter, sort and paginate pipeline. No UI, no framework.</p>
+        </div>
+        <div class="card">
+          <h3><a href="grid-state.html">grid-state</a></h3>
+          <p>Interaction state: selection, sort cycling, paging and view mode, plus the intents a renderer calls.</p>
+        </div>
+        <div class="card">
+          <h3><a href="grid-plugin-api.html">grid-plugin-api</a></h3>
+          <p>Composable query stages — column filters, multi-sort, aggregates — and the data-provider seam.</p>
+        </div>
+        <div class="card">
+          <h3><a href="grid-dioxus.html">grid-dioxus</a></h3>
+          <p>The Dioxus renderer. Ships behavior and stable class hooks, and no CSS.</p>
+        </div>
+      </div>
+
+      <h2 id="design"><a class="anchor" href="#design" aria-label="Link to this section">#</a>What "headless" means here</h2>
+      <p>
+        The renderer emits structure, behavior and state, and nothing about
+        appearance. Every element carries a stable <code>dxg-*</code> class name,
+        state lives in <code>data-*</code> attributes, and the only inline styles
+        are values that can only be known at render time, like a dragged column's
+        width.
+      </p>
+      <p>
+        You write the CSS. There is a reference stylesheet to copy as a starting
+        point, and the <a href="styling.html">styling guide</a> documents the full
+        contract.
+      </p>
+
+      <div class="note">
+        <div>
+          <strong>Sortable implies filterable.</strong>
+          A column that declares a sort key is filterable with no extra
+          configuration, because the filter stage reuses the same projection.
+        </div>
+      </div>
+
+      <h2 id="next"><a class="anchor" href="#next" aria-label="Link to this section">#</a>Where to go next</h2>
+      <div class="cards">
+        <div class="card">
+          <h3><a href="quickstart.html">Quickstart</a></h3>
+          <p>A working grid in about twenty lines, and what each prop is for.</p>
+        </div>
+        <div class="card">
+          <h3><a href="styling.html">Styling</a></h3>
+          <p>The three-tier contract: class names, state attributes and tokens.</p>
+        </div>
+        <div class="card">
+          <h3><a href="bundle-size.html">Bundle size</a></h3>
+          <p>Why there are two render paths and when to override the choice.</p>
+        </div>
+        <div class="card">
+          <h3><a href="demo.html">Live demo</a></h3>
+          <p>The example app, running in the browser.</p>
+        </div>
+      </div>
+
+      <div class="pager">
+        <span></span>
+        <a class="next" href="quickstart.html"><span>Next</span>Quickstart →</a>
+      </div>
+
+      <p class="ftr">
+        Dual-licensed under MIT or Apache-2.0.
+        <a href="https://github.com/iamAhsanMalik/dioxus-grid">Source on GitHub</a>.
+      </p>
+    </div>
+  </main>
+
+  <nav class="toc" aria-label="On this page">
+    <p class="toc-title">On this page</p>
+    <ul>
+      <li><a href="#install">Install</a></li>
+      <li><a href="#how-it-fits">How it fits together</a></li>
+      <li><a href="#design">What "headless" means</a></li>
+      <li><a href="#next">Where to go next</a></li>
+    </ul>
+  </nav>
+
+</div>
+</body>
+</html>
