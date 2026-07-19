@@ -1,0 +1,579 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>grid-dioxus — dioxus-grid</title>
+<meta name="description" content="Reference for grid-dioxus: the DataGrid component, its props, GridColumn, GridAction, FilterKind, export and date types, and the fn-pointer gotchas.">
+<link rel="icon" href="assets/favicon.svg">
+<link rel="stylesheet" href="assets/docs.css">
+</head>
+<body>
+
+<input type="checkbox" id="navToggle" class="nav-toggle" hidden>
+
+<header class="hdr">
+  <label for="navToggle" class="nav-btn" aria-label="Toggle navigation">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 6h18M3 12h18M3 18h18"/></svg>
+  </label>
+
+  <a class="hdr-brand" href="index.html">
+    <svg viewBox="0 0 32 32" aria-hidden="true">
+      <rect width="32" height="32" rx="7" fill="var(--accent)"/>
+      <g fill="var(--accent-ink)">
+        <rect x="6" y="8" width="20" height="3.5" rx="1"/>
+        <rect x="6" y="14.25" width="20" height="3.5" rx="1" opacity=".7"/>
+        <rect x="6" y="20.5" width="20" height="3.5" rx="1" opacity=".45"/>
+      </g>
+    </svg>
+    dioxus-grid
+    <span class="hdr-ver">v0.1.0</span>
+  </a>
+
+  <nav class="hdr-nav">
+    <a href="quickstart.html">Quickstart</a>
+    <a href="demo.html">Demo</a>
+    <a href="https://github.com/iamAhsanMalik/dioxus-grid">GitHub</a>
+  </nav>
+</header>
+
+<div class="shell">
+
+  <aside class="nav">
+    <div class="nav-group">
+      <p class="nav-title">Guides</p>
+      <ul>
+        <li><a href="index.html">Introduction</a></li>
+        <li><a href="quickstart.html">Quickstart</a></li>
+        <li><a href="columns.html">Columns</a></li>
+        <li><a href="sorting-filtering.html">Sorting &amp; filtering</a></li>
+        <li><a href="selection-paging.html">Selection &amp; paging</a></li>
+        <li><a href="styling.html">Styling</a></li>
+        <li><a href="bundle-size.html">Bundle size</a></li>
+        <li><a href="demo.html">Live demo</a></li>
+      </ul>
+    </div>
+    <div class="nav-group">
+      <p class="nav-title">Crates</p>
+      <ul>
+        <li><a href="grid-core.html">grid-core</a></li>
+        <li><a href="grid-state.html">grid-state</a></li>
+        <li><a href="grid-plugin-api.html">grid-plugin-api</a></li>
+        <li><a href="grid-dioxus.html" aria-current="page">grid-dioxus</a></li>
+      </ul>
+    </div>
+  </aside>
+
+  <main class="main">
+    <div class="prose">
+      <p class="eyebrow">Crates</p>
+      <h1>grid-dioxus</h1>
+      <p class="lead">
+        The Dioxus renderer over the three headless crates. It ships behavior and
+        stable class hooks and no CSS. This is normally the only dependency you
+        need: it re-exports <code>grid_core</code>, <code>grid_plugin_api</code>
+        and <code>grid_state</code>, so you can build queries, providers and state
+        without adding them to your manifest.
+      </p>
+
+      <h2 id="exports"><a class="anchor" href="#exports" aria-label="Link to this section">#</a>What the crate exports</h2>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>Item</th><th>Kind</th><th>Purpose</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>DataGrid</code></td><td>component</td><td>The grid.</td></tr>
+            <tr><td><code>AdaptiveDataGrid</code></td><td>component</td><td>Same props; picks <code>density</code> and the initial view from the data volume.</td></tr>
+            <tr><td><code>GridColumn</code></td><td>struct</td><td>A column: label, cell renderer, sort keys, filter kind, alignment.</td></tr>
+            <tr><td><code>GridAction</code></td><td>struct</td><td>One entry in a row's kebab menu.</td></tr>
+            <tr><td><code>GridAlign</code></td><td>enum</td><td><code>Left</code> / <code>Right</code> / <code>Center</code>.</td></tr>
+            <tr><td><code>GridDensity</code></td><td>enum</td><td><code>Full</code> / <code>Minimal</code> — how much chrome to render.</td></tr>
+            <tr><td><code>FilterKind</code></td><td>enum</td><td>Which filter control a column shows.</td></tr>
+            <tr><td><code>CellEdit</code></td><td>struct</td><td>The payload of a committed inline edit.</td></tr>
+            <tr><td><code>Aggregate</code></td><td>enum</td><td>Re-exported footer aggregate: <code>Sum</code>, <code>Avg</code>, <code>Min</code>, <code>Max</code>, <code>Count</code>.</td></tr>
+            <tr><td><code>DataProvider</code>, <code>LocalProvider</code></td><td>trait, struct</td><td>Re-exported provider seam.</td></tr>
+            <tr><td><code>GridQuery</code>, <code>GridPage</code></td><td>structs</td><td>Re-exported query and page types — what remote mode exchanges.</td></tr>
+            <tr><td><code>Date</code>, <code>DateRangePicker</code></td><td>struct, component</td><td>The date-range control the <code>DateRange</code> filter uses; usable on its own.</td></tr>
+            <tr><td><code>ExportData</code>, <code>ExportFormat</code></td><td>struct, enum</td><td>Export payload and format (<code>Csv</code> / <code>Xlsx</code> / <code>Pdf</code>).</td></tr>
+            <tr><td><code>Spinner</code></td><td>component</td><td>The indeterminate loading spinner. Carries <code>role="status"</code> and <code>data-grid-spinner</code>.</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h2 id="minimal"><a class="anchor" href="#minimal" aria-label="Link to this section">#</a>The minimal grid</h2>
+      <p>
+        Three required props. This is the compile-tested example from
+        <code>grid-dioxus/tests/readme_example.rs</code>, which exists so the docs
+        cannot drift from the real API.
+      </p>
+
+      <div class="code">
+        <div class="code-head"><span class="code-dot"></span>a working grid</div>
+<pre><code><span class="k">use</span> std::rc::<span class="t">Rc</span>;
+
+<span class="k">use</span> dioxus::prelude::*;
+<span class="k">use</span> grid_dioxus::{<span class="t">DataGrid</span>, <span class="t">GridColumn</span>};
+
+<span class="a">#[derive(Clone, PartialEq)]</span>
+<span class="k">struct</span> <span class="t">Row</span> { id: <span class="t">u32</span>, name: <span class="t">String</span>, qty: <span class="t">i64</span> }
+
+<span class="k">fn</span> <span class="f">search_text</span>(r: &amp;<span class="t">Row</span>) -&gt; <span class="t">String</span> { r.name.<span class="f">clone</span>() }
+
+<span class="a">#[component]</span>
+<span class="k">fn</span> <span class="f">Demo</span>() -&gt; <span class="t">Element</span> {
+    <span class="k">let</span> rows: <span class="t">Rc</span>&lt;[<span class="t">Row</span>]&gt; = <span class="f">vec!</span>[<span class="t">Row</span> { id: <span class="n">1</span>, name: <span class="s">"Widget"</span>.<span class="f">into</span>(), qty: <span class="n">12</span> }].<span class="f">into</span>();
+    <span class="k">let</span> columns = <span class="f">vec!</span>[
+        <span class="t">GridColumn</span>::<span class="f">new</span>(<span class="s">"name"</span>, <span class="s">"Name"</span>, |r: &amp;<span class="t">Row</span>| <span class="f">rsx!</span> { <span class="s">"{r.name}"</span> })
+            .<span class="f">sortable</span>(|r| r.name.<span class="f">clone</span>()),
+        <span class="t">GridColumn</span>::<span class="f">new</span>(<span class="s">"qty"</span>, <span class="s">"Qty"</span>, |r: &amp;<span class="t">Row</span>| <span class="f">rsx!</span> { <span class="s">"{r.qty}"</span> })
+            .<span class="f">sortable_num</span>(|r| r.qty <span class="k">as</span> <span class="t">f64</span>),
+    ];
+    <span class="f">rsx!</span> {
+        <span class="t">DataGrid</span> {
+            rows,
+            columns,
+            row_id: |r: &amp;<span class="t">Row</span>| r.id.<span class="f">to_string</span>(),
+            search_text: <span class="t">Some</span>(search_text <span class="k">as</span> <span class="k">fn</span>(&amp;<span class="t">Row</span>) -&gt; <span class="t">String</span>),
+            selectable: <span class="k">true</span>,
+        }
+    }
+}</code></pre>
+      </div>
+
+      <h2 id="gotchas"><a class="anchor" href="#gotchas" aria-label="Link to this section">#</a>Two gotchas, up front</h2>
+      <p>
+        Both come from the same design constraint, so they are worth understanding
+        together rather than hitting one at a time.
+      </p>
+
+      <h3><code>rows</code> is <code>Rc&lt;[T]&gt;</code>, not <code>Vec&lt;T&gt;</code></h3>
+      <p>
+        The dataset is shared by reference-counted pointer so that neither the
+        parent nor the grid ever clones the whole thing — only the visible page's
+        rows are materialised. <code>Vec&lt;T&gt;</code> would mean a full copy on
+        every render.
+      </p>
+
+      <div class="code">
+        <div class="code-head"><span class="code-dot"></span>building the rows prop</div>
+<pre><code><span class="k">let</span> rows: <span class="t">Rc</span>&lt;[<span class="t">Row</span>]&gt; = my_vec.<span class="f">into</span>();       <span class="c">// or Rc::from(my_vec)</span>
+<span class="k">let</span> rows: <span class="t">Rc</span>&lt;[<span class="t">Row</span>]&gt; = <span class="f">vec!</span>[a, b, c].<span class="f">into</span>();</code></pre>
+      </div>
+
+      <h3>Some props are <code>fn</code> pointers, not closures</h3>
+      <p>
+        Dioxus requires props to be <code>PartialEq</code> so it can skip
+        re-renders, and a boxed closure is not comparable. So <code>render</code>,
+        the sort keys, <code>row_id</code>, <code>search_text</code>,
+        <code>actions</code>, <code>card</code> and <code>row</code> are all plain
+        <code>fn</code> pointers.
+      </p>
+      <p>
+        A non-capturing closure coerces to a <code>fn</code> pointer, so
+        <code>row_id: |r: &amp;Row| r.id.to_string()</code> just works. But when the
+        prop's type is <code>Option&lt;fn(&amp;T) -&gt; String&gt;</code>, inference
+        has nothing to coerce <em>toward</em> inside the <code>Some</code>, and you
+        must say so:
+      </p>
+
+      <div class="code">
+        <div class="code-head"><span class="code-dot"></span>the Option coercion</div>
+<pre><code><span class="c">// does not compile — closure inside Some, no target type</span>
+search_text: <span class="t">Some</span>(|r: &amp;<span class="t">Row</span>| r.name.<span class="f">clone</span>()),
+
+<span class="c">// works — name a fn and coerce it</span>
+search_text: <span class="t">Some</span>(search_text <span class="k">as</span> <span class="k">fn</span>(&amp;<span class="t">Row</span>) -&gt; <span class="t">String</span>),
+
+<span class="c">// same for actions</span>
+actions: <span class="t">Some</span>(row_actions <span class="k">as</span> <span class="k">fn</span>(&amp;<span class="t">Row</span>) -&gt; <span class="t">Vec</span>&lt;<span class="t">GridAction</span>&gt;),</code></pre>
+      </div>
+
+      <div class="note note-warn">
+        <div>
+          <strong>Capturing closures are not an option here.</strong>
+          If a cell needs data from the surrounding scope, that data belongs in
+          <code>T</code>. Row-specific <em>interactivity</em> goes through
+          <code>actions</code> and <code>on_action</code> instead, which are
+          <code>EventHandler</code>s and may capture freely.
+        </div>
+      </div>
+
+      <h2 id="props"><a class="anchor" href="#props" aria-label="Link to this section">#</a>DataGridProps</h2>
+
+      <h3>Required</h3>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>Prop</th><th>Type</th><th>Purpose</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>rows</code></td><td><code>Rc&lt;[T]&gt;</code></td><td>The dataset, shared by pointer.</td></tr>
+            <tr><td><code>columns</code></td><td><code>Vec&lt;GridColumn&lt;T&gt;&gt;</code></td><td>Column definitions.</td></tr>
+            <tr><td><code>row_id</code></td><td><code>fn(&amp;T) -&gt; String</code></td><td>Stable row identity, for selection and action routing.</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>Data and interaction</h3>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>Prop</th><th>Type</th><th>Default</th><th>Purpose</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>search_text</code></td><td><code>Option&lt;fn(&amp;T) -&gt; String&gt;</code></td><td><code>None</code></td><td>Haystack for the global search box. <code>None</code> hides the box.</td></tr>
+            <tr><td><code>actions</code></td><td><code>Option&lt;fn(&amp;T) -&gt; Vec&lt;GridAction&gt;&gt;</code></td><td><code>None</code></td><td>Builds a row's kebab menu. <code>None</code> hides the action column.</td></tr>
+            <tr><td><code>on_action</code></td><td><code>Option&lt;EventHandler&lt;(&amp;'static str, T)&gt;&gt;</code></td><td><code>None</code></td><td>Fired with the action key and row.</td></tr>
+            <tr><td><code>on_row_click</code></td><td><code>Option&lt;EventHandler&lt;T&gt;&gt;</code></td><td><code>None</code></td><td>Row click. Checkbox and kebab clicks do not bubble here.</td></tr>
+            <tr><td><code>on_edit</code></td><td><code>Option&lt;EventHandler&lt;CellEdit&lt;T&gt;&gt;&gt;</code></td><td><code>None</code></td><td>An inline edit was committed. Requires <code>.editable(…)</code> on the column.</td></tr>
+            <tr><td><code>selectable</code></td><td><code>bool</code></td><td><code>false</code></td><td>Show selection checkboxes.</td></tr>
+            <tr><td><code>on_selection</code></td><td><code>Option&lt;EventHandler&lt;Vec&lt;String&gt;&gt;&gt;</code></td><td><code>None</code></td><td>Fired whenever the selected-id set changes.</td></tr>
+            <tr><td><code>on_bulk_action</code></td><td><code>Option&lt;EventHandler&lt;(&amp;'static str, Vec&lt;T&gt;)&gt;&gt;</code></td><td><code>None</code></td><td>Setting this auto-builds a bulk bar from the actions common to every selected row.</td></tr>
+            <tr><td><code>bulk</code></td><td><code>Option&lt;Element&gt;</code></td><td><code>None</code></td><td>Custom bulk UI, rendered when at least one row is selected.</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>Presentation</h3>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>Prop</th><th>Type</th><th>Default</th><th>Purpose</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>toolbar</code></td><td><code>Option&lt;Element&gt;</code></td><td><code>None</code></td><td>Extra toolbar content. Always rendered.</td></tr>
+            <tr><td><code>loading</code></td><td><code>bool</code></td><td><code>false</code></td><td>Show the loading state; sets <code>data-loading</code> on the root.</td></tr>
+            <tr><td><code>empty_label</code></td><td><code>String</code></td><td><code>"No records match."</code></td><td>Text for the empty state.</td></tr>
+            <tr><td><code>page_size</code></td><td><code>usize</code></td><td><code>10</code></td><td>Initial rows per page.</td></tr>
+            <tr><td><code>density</code></td><td><code>GridDensity</code></td><td><code>Full</code></td><td><code>Minimal</code> drops the filter funnels, column chooser, group-by, and the single-page footer.</td></tr>
+            <tr><td><code>card</code></td><td><code>Option&lt;fn(&amp;T) -&gt; Element&gt;</code></td><td><code>None</code></td><td>Custom card body for gallery view. <code>None</code> auto-builds one from the columns.</td></tr>
+            <tr><td><code>row</code></td><td><code>Option&lt;fn(&amp;T) -&gt; Element&gt;</code></td><td><code>None</code></td><td>Custom full-width list row, replacing the per-column cells. Sorting still uses <code>columns</code>, so keep them declared.</td></tr>
+            <tr><td><code>grid_default</code></td><td><code>bool</code></td><td><code>false</code></td><td>Start in gallery view.</td></tr>
+            <tr><td><code>no_card_toggle</code></td><td><code>bool</code></td><td><code>false</code></td><td>Hide the list ⇄ gallery toggle, for inherently tabular data.</td></tr>
+            <tr><td><code>today</code></td><td><code>Option&lt;String&gt;</code></td><td><code>None</code></td><td>ISO <code>YYYY-MM-DD</code>, forwarded to date-range filters for their presets and "today" marker.</td></tr>
+            <tr><td><code>persist_key</code></td><td><code>Option&lt;&amp;'static str&gt;</code></td><td><code>None</code></td><td>Save column order, widths, pins and hidden columns to <code>localStorage</code>.</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="note">
+        <div>
+          <strong>The grid stays clock-free.</strong>
+          <code>today</code> is a prop rather than a <code>now()</code> call
+          because reading the clock inside a component makes it untestable and
+          non-deterministic, and because the correct "today" depends on the user's
+          timezone, which the host knows and the grid does not.
+        </div>
+      </div>
+
+      <h3>Export</h3>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>Prop</th><th>Type</th><th>Purpose</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>export_filename</code></td><td><code>Option&lt;&amp;'static str&gt;</code></td><td>Enables the toolbar export of the current view — rows after search, filters and sort, across <em>all</em> pages. The value is the download filename. <code>None</code> hides the button.</td></tr>
+            <tr><td><code>on_export_signed</code></td><td><code>Option&lt;EventHandler&lt;GridQuery&gt;&gt;</code></td><td>Adds a "Signed PDF" item that fires with the current query, for your backend to render, sign and return.</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <p>
+        Export can also cover the <em>whole</em> dataset rather than the filtered
+        view — the export menu is a format choice crossed with a scope choice. CSV
+        needs no features; Excel and PDF need <code>export-rich</code>. See
+        <a href="bundle-size.html">bundle size</a> for why you probably want that
+        off in wasm, and why signing is a server concern.
+      </p>
+
+      <h3>Remote mode</h3>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>Prop</th><th>Type</th><th>Purpose</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>on_query</code></td><td><code>Option&lt;EventHandler&lt;GridQuery&gt;&gt;</code></td><td>Fires whenever the effective query changes. <strong>Its presence puts the grid in remote mode.</strong></td></tr>
+            <tr><td><code>remote_page</code></td><td><code>Option&lt;GridPage&lt;T&gt;&gt;</code></td><td>The page you fetched for the latest query. <code>None</code> while loading.</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <p>
+        In remote mode the grid stops querying <code>rows</code> locally and draws
+        exactly the page you hand it, so <code>rows</code> may be empty. The host
+        runs its own async fetch — the grid never picks a runtime or an HTTP client.
+        This is how a grid scales past what a browser can hold: the server filters,
+        sorts and paginates, and the browser holds one page.
+      </p>
+
+      <h2 id="gridcolumn"><a class="anchor" href="#gridcolumn" aria-label="Link to this section">#</a>GridColumn</h2>
+      <p>
+        The view-side column type. It is a superset of
+        <a href="grid-core.html"><code>ColumnDef</code></a> — the grid derives the
+        engine columns from these — with the rendering concerns core deliberately
+        omits.
+      </p>
+
+      <div class="code">
+        <div class="code-head"><span class="code-dot"></span>grid_dioxus::GridColumn</div>
+<pre><code><span class="k">impl</span>&lt;<span class="t">T</span>: <span class="t">Clone</span> + <span class="t">PartialEq</span> + <span class="s">'static</span>&gt; <span class="t">GridColumn</span>&lt;<span class="t">T</span>&gt; {
+    <span class="k">pub fn</span> <span class="f">new</span>(key: &amp;<span class="s">'static</span> <span class="t">str</span>, label: &amp;<span class="s">'static</span> <span class="t">str</span>,
+               render: <span class="k">fn</span>(&amp;<span class="t">T</span>) -&gt; <span class="t">Element</span>) -&gt; <span class="t">Self</span>;
+
+    <span class="k">pub fn</span> <span class="f">sortable</span>(<span class="k">self</span>, f: <span class="k">fn</span>(&amp;<span class="t">T</span>) -&gt; <span class="t">String</span>) -&gt; <span class="t">Self</span>;
+    <span class="k">pub fn</span> <span class="f">sortable_num</span>(<span class="k">self</span>, f: <span class="k">fn</span>(&amp;<span class="t">T</span>) -&gt; <span class="t">f64</span>) -&gt; <span class="t">Self</span>;  <span class="c">// wins over sortable</span>
+    <span class="k">pub fn</span> <span class="f">csv</span>(<span class="k">self</span>, f: <span class="k">fn</span>(&amp;<span class="t">T</span>) -&gt; <span class="t">String</span>) -&gt; <span class="t">Self</span>;
+    <span class="k">pub fn</span> <span class="f">editable</span>(<span class="k">self</span>, f: <span class="k">fn</span>(&amp;<span class="t">T</span>) -&gt; <span class="t">String</span>) -&gt; <span class="t">Self</span>;
+    <span class="k">pub fn</span> <span class="f">aggregate</span>(<span class="k">self</span>, agg: <span class="t">Aggregate</span>) -&gt; <span class="t">Self</span>;
+    <span class="k">pub fn</span> <span class="f">filter</span>(<span class="k">self</span>, kind: <span class="t">FilterKind</span>) -&gt; <span class="t">Self</span>;
+    <span class="k">pub fn</span> <span class="f">right</span>(<span class="k">self</span>) -&gt; <span class="t">Self</span>;
+    <span class="k">pub fn</span> <span class="f">center</span>(<span class="k">self</span>) -&gt; <span class="t">Self</span>;
+    <span class="k">pub fn</span> <span class="f">width</span>(<span class="k">self</span>, w: &amp;<span class="s">'static</span> <span class="t">str</span>) -&gt; <span class="t">Self</span>;   <span class="c">// e.g. "12rem" → min-width</span>
+    <span class="k">pub fn</span> <span class="f">mobile_hidden</span>(<span class="k">self</span>) -&gt; <span class="t">Self</span>;
+}</code></pre>
+      </div>
+
+      <p>
+        A few behaviors that are easy to miss:
+      </p>
+      <ul>
+        <li>
+          <strong>Sortable is the master switch.</strong> A column with a sort key
+          is sortable, filterable and groupable; one without is none of those.
+          <code>sortable_num</code> also marks the column numeric, which drives the
+          operator list and the inferred filter control.
+        </li>
+        <li>
+          <strong><code>csv</code> is for when display differs from data.</strong>
+          Export falls back to <code>sort_key</code>, then <code>sort_num</code>; a
+          column with none of the three exports as an empty cell. Set
+          <code>csv</code> when the cell renders a badge or an icon whose text is
+          not what belongs in the file.
+        </li>
+        <li>
+          <strong><code>width</code> is a <code>min-width</code></strong>, so long
+          content does not crush its neighbours. A user drag overrides it with a
+          fixed width.
+        </li>
+        <li>
+          <strong><code>aggregate</code> uses the numeric projection</strong>, over
+          the current filtered set — not the page. <code>Count</code> is
+          type-agnostic.
+        </li>
+      </ul>
+
+      <h3>FilterKind</h3>
+      <p>
+        Which control the filter popover shows. Defaults to <code>Auto</code>,
+        which infers <code>Number</code> from a <code>sort_num</code> projection
+        and <code>Text</code> otherwise. Set it explicitly when the data has a
+        shape the projection cannot convey.
+      </p>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>Variant</th><th>Control</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>Auto</code></td><td>Inferred from the column.</td></tr>
+            <tr><td><code>Text</code></td><td>Free text: contains / equals / starts-with.</td></tr>
+            <tr><td><code>Number</code></td><td>Numeric operators with a number input.</td></tr>
+            <tr><td><code>Rating</code></td><td>A 0–5 star picker filtering by "rating ≥ N".</td></tr>
+            <tr><td><code>HasValue</code></td><td>A present / absent toggle over the projection.</td></tr>
+            <tr><td><code>Range</code></td><td>A min–max numeric range, both bounds optional.</td></tr>
+            <tr><td><code>Set</code></td><td>A checkbox list of the column's distinct values, derived from the dataset.</td></tr>
+            <tr><td><code>DateRange</code></td><td>Two date pickers. Packs to the same min|max range, lexicographic on ISO <code>YYYY-MM-DD</code> — which sorts chronologically.</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <p>
+        All of them drive the same underlying filter stage over the column's
+        projection. Only the <em>input</em> differs, which is why a rating picker
+        and a numeric range need no special handling in the engine.
+      </p>
+
+      <h2 id="gridaction"><a class="anchor" href="#gridaction" aria-label="Link to this section">#</a>GridAction</h2>
+
+      <div class="code">
+        <div class="code-head"><span class="code-dot"></span>grid_dioxus::GridAction</div>
+<pre><code><span class="k">impl</span> <span class="t">GridAction</span> {
+    <span class="k">pub fn</span> <span class="f">new</span>(key: &amp;<span class="s">'static</span> <span class="t">str</span>, label: <span class="k">impl</span> <span class="t">Into</span>&lt;<span class="t">String</span>&gt;) -&gt; <span class="t">Self</span>;
+    <span class="k">pub fn</span> <span class="f">danger</span>(key: &amp;<span class="s">'static</span> <span class="t">str</span>, label: <span class="k">impl</span> <span class="t">Into</span>&lt;<span class="t">String</span>&gt;) -&gt; <span class="t">Self</span>;
+    <span class="k">pub fn</span> <span class="f">icon</span>(<span class="k">self</span>, path: &amp;<span class="s">'static</span> <span class="t">str</span>) -&gt; <span class="t">Self</span>;   <span class="c">// SVG path, 24×24, stroke-based</span>
+    <span class="k">pub fn</span> <span class="f">quick</span>(<span class="k">self</span>) -&gt; <span class="t">Self</span>;      <span class="c">// also an inline icon button (needs an icon)</span>
+    <span class="k">pub fn</span> <span class="f">disabled</span>(<span class="k">self</span>) -&gt; <span class="t">Self</span>;
+    <span class="k">pub fn</span> <span class="f">no_bulk</span>(<span class="k">self</span>) -&gt; <span class="t">Self</span>;    <span class="c">// exclude from the bulk bar</span>
+}</code></pre>
+      </div>
+
+      <p>
+        <code>danger</code> sets <code>data-variant="danger"</code> on the rendered
+        item, so destructive entries are yours to style rather than pre-coloured.
+      </p>
+      <p>
+        <code>no_bulk</code> matters once you wire <code>on_bulk_action</code>. The
+        bulk bar is derived from the actions common to every selected row, and some
+        actions do not make sense applied to a set — an "Edit" that opens one
+        record's form, for instance. Mark those <code>no_bulk</code> and they stay
+        in the per-row kebab only.
+      </p>
+
+      <h2 id="celledit"><a class="anchor" href="#celledit" aria-label="Link to this section">#</a>CellEdit</h2>
+
+      <div class="code">
+        <div class="code-head"><span class="code-dot"></span>grid_dioxus::CellEdit</div>
+<pre><code><span class="k">pub struct</span> <span class="t">CellEdit</span>&lt;<span class="t">T</span>: <span class="t">Clone</span> + <span class="t">PartialEq</span> + <span class="s">'static</span>&gt; {
+    <span class="k">pub</span> row: <span class="t">T</span>,
+    <span class="k">pub</span> key: &amp;<span class="s">'static</span> <span class="t">str</span>,
+    <span class="k">pub</span> value: <span class="t">String</span>,
+}</code></pre>
+      </div>
+
+      <p>
+        The value is the raw text the user typed. You parse it into your field and
+        update your own data — <strong>the grid never mutates the rows</strong>,
+        because they are shared by <code>Rc</code> and it does not know how to
+        validate your domain. Rejecting a bad edit is simply not applying it.
+      </p>
+
+      <h2 id="adaptive"><a class="anchor" href="#adaptive" aria-label="Link to this section">#</a>AdaptiveDataGrid</h2>
+      <p>
+        Takes the exact same props — it <em>is</em> <code>DataGridProps</code> — and
+        is a thin pass-through, so there is one grid implementation to maintain.
+        What it adds is two defaults chosen from the data volume:
+      </p>
+      <ul>
+        <li>
+          <strong>Density.</strong> At or below 30 rows it picks
+          <code>Minimal</code>; above that, <code>Full</code>. An explicitly
+          non-default <code>density</code> from the caller always wins.
+        </li>
+        <li>
+          <strong>Initial view.</strong> At or below 30 rows it starts in gallery
+          view, since cards read better than a sparse table. It only seeds the
+          starting mode — the user's toggle always wins thereafter.
+        </li>
+      </ul>
+      <p>
+        In remote mode it uses the fetched page's <code>total</code> rather than
+        <code>rows.len()</code>, and stays in list view.
+      </p>
+
+      <div class="note note-warn">
+        <div>
+          <strong><code>rows.len()</code> is a weak signal, so treat this as a
+          default.</strong>
+          A 12-row <em>filtered slice of 50,000</em> still wants the full controls
+          — the user needs the filter funnels precisely because the dataset is
+          large. Where the row count does not reflect the dataset's real size, pass
+          <code>density</code> explicitly or just use <code>DataGrid</code>.
+        </div>
+      </div>
+
+      <h2 id="date"><a class="anchor" href="#date" aria-label="Link to this section">#</a>Date and DateRangePicker</h2>
+      <p>
+        The control behind the <code>DateRange</code> filter, exported because it is
+        useful on its own.
+      </p>
+
+      <div class="code">
+        <div class="code-head"><span class="code-dot"></span>grid_dioxus::Date</div>
+<pre><code><span class="k">pub struct</span> <span class="t">Date</span> { <span class="k">pub</span> year: <span class="t">i32</span>, <span class="k">pub</span> month: <span class="t">u32</span>, <span class="k">pub</span> day: <span class="t">u32</span> }
+
+<span class="k">impl</span> <span class="t">Date</span> {
+    <span class="k">pub fn</span> <span class="f">new</span>(year: <span class="t">i32</span>, month: <span class="t">u32</span>, day: <span class="t">u32</span>) -&gt; <span class="t">Self</span>;
+    <span class="c">// Lenient ISO YYYY-MM-DD parse; None on anything malformed.</span>
+    <span class="k">pub fn</span> <span class="f">parse</span>(s: &amp;<span class="t">str</span>) -&gt; <span class="t">Option</span>&lt;<span class="t">Date</span>&gt;;
+}</code></pre>
+      </div>
+
+      <p>
+        <code>DateRangePicker</code> takes <code>from</code> and <code>to</code> as
+        ISO strings — either side may be empty — plus an optional
+        <code>today</code>, and fires <code>onchange</code> with the new
+        <code>(from, to)</code> pair on Apply, on a preset, or on Clear. Like the
+        grid, it never reads the clock itself.
+      </p>
+
+      <h2 id="export"><a class="anchor" href="#export" aria-label="Link to this section">#</a>ExportData and ExportFormat</h2>
+
+      <div class="code">
+        <div class="code-head"><span class="code-dot"></span>grid_dioxus::grid_export</div>
+<pre><code><span class="k">pub struct</span> <span class="t">ExportData</span> {
+    <span class="k">pub</span> headers: <span class="t">Vec</span>&lt;<span class="t">String</span>&gt;,
+    <span class="k">pub</span> rows: <span class="t">Vec</span>&lt;<span class="t">Vec</span>&lt;<span class="t">String</span>&gt;&gt;,
+    <span class="k">pub</span> title: <span class="t">String</span>,   <span class="c">// PDF heading / sheet name; usually the filename stem</span>
+}
+
+<span class="k">pub enum</span> <span class="t">ExportFormat</span> { <span class="t">Csv</span>, <span class="t">Xlsx</span>, <span class="t">Pdf</span> }
+
+<span class="k">impl</span> <span class="t">ExportFormat</span> {
+    <span class="k">pub fn</span> <span class="f">extension</span>(<span class="k">self</span>) -&gt; &amp;<span class="s">'static</span> <span class="t">str</span>;
+}</code></pre>
+      </div>
+
+      <p>
+        Export flattens to strings before it reaches a format encoder, which is why
+        adding <code>Xlsx</code> and <code>Pdf</code> behind a feature does not
+        touch the grid's own code paths.
+      </p>
+
+      <h2 id="features"><a class="anchor" href="#features" aria-label="Link to this section">#</a>Features</h2>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>Feature</th><th>Effect</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>web</code></td><td>Browser glue. Enables <code>dioxus/web</code> and the <code>localStorage</code> persistence behind <code>persist_key</code>. On native, every storage call is a no-op — so layout simply is not persisted there, which is the desired behavior.</td></tr>
+            <tr><td><code>export-rich</code></td><td>Client-side Excel and PDF encoders. CSV always works without it.</td></tr>
+            <tr><td><code>force-mono</code> / <code>force-erased</code></td><td>Override the render path. At most one; both is a compile error. See <a href="bundle-size.html">bundle size</a>.</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <p>
+        Note what <code>persist_key</code> saves and what it does not: column order,
+        widths, pins and hidden columns — <em>layout</em>. Filters, sort and page are
+        deliberately not persisted, because they are query state. Returning to a
+        screen and finding it silently filtered is a bug, not a feature.
+      </p>
+
+      <div class="pager">
+        <a href="grid-plugin-api.html"><span>Previous</span>← grid-plugin-api</a>
+        <span></span>
+      </div>
+
+      <p class="ftr">
+        Dual-licensed under MIT or Apache-2.0.
+        <a href="https://github.com/iamAhsanMalik/dioxus-grid">Source on GitHub</a>.
+      </p>
+    </div>
+  </main>
+
+  <nav class="toc" aria-label="On this page">
+    <p class="toc-title">On this page</p>
+    <ul>
+      <li><a href="#exports">What the crate exports</a></li>
+      <li><a href="#minimal">The minimal grid</a></li>
+      <li><a href="#gotchas">Two gotchas</a></li>
+      <li><a href="#props">DataGridProps</a></li>
+      <li><a href="#gridcolumn">GridColumn</a></li>
+      <li><a href="#gridaction">GridAction</a></li>
+      <li><a href="#celledit">CellEdit</a></li>
+      <li><a href="#adaptive">AdaptiveDataGrid</a></li>
+      <li><a href="#date">Date &amp; picker</a></li>
+      <li><a href="#export">Export types</a></li>
+      <li><a href="#features">Features</a></li>
+    </ul>
+  </nav>
+
+</div>
+</body>
+</html>

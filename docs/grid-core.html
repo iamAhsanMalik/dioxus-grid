@@ -1,0 +1,441 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>grid-core — dioxus-grid</title>
+<meta name="description" content="Reference for grid-core: CellValue, Sort, ColumnDef, QueryModel, ResultSet, the DataSource trait and the filter/sort/paginate pipeline.">
+<link rel="icon" href="assets/favicon.svg">
+<link rel="stylesheet" href="assets/docs.css">
+</head>
+<body>
+
+<input type="checkbox" id="navToggle" class="nav-toggle" hidden>
+
+<header class="hdr">
+  <label for="navToggle" class="nav-btn" aria-label="Toggle navigation">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 6h18M3 12h18M3 18h18"/></svg>
+  </label>
+
+  <a class="hdr-brand" href="index.html">
+    <svg viewBox="0 0 32 32" aria-hidden="true">
+      <rect width="32" height="32" rx="7" fill="var(--accent)"/>
+      <g fill="var(--accent-ink)">
+        <rect x="6" y="8" width="20" height="3.5" rx="1"/>
+        <rect x="6" y="14.25" width="20" height="3.5" rx="1" opacity=".7"/>
+        <rect x="6" y="20.5" width="20" height="3.5" rx="1" opacity=".45"/>
+      </g>
+    </svg>
+    dioxus-grid
+    <span class="hdr-ver">v0.1.0</span>
+  </a>
+
+  <nav class="hdr-nav">
+    <a href="quickstart.html">Quickstart</a>
+    <a href="demo.html">Demo</a>
+    <a href="https://github.com/iamAhsanMalik/dioxus-grid">GitHub</a>
+  </nav>
+</header>
+
+<div class="shell">
+
+  <aside class="nav">
+    <div class="nav-group">
+      <p class="nav-title">Guides</p>
+      <ul>
+        <li><a href="index.html">Introduction</a></li>
+        <li><a href="quickstart.html">Quickstart</a></li>
+        <li><a href="columns.html">Columns</a></li>
+        <li><a href="sorting-filtering.html">Sorting &amp; filtering</a></li>
+        <li><a href="selection-paging.html">Selection &amp; paging</a></li>
+        <li><a href="styling.html">Styling</a></li>
+        <li><a href="bundle-size.html">Bundle size</a></li>
+        <li><a href="demo.html">Live demo</a></li>
+      </ul>
+    </div>
+    <div class="nav-group">
+      <p class="nav-title">Crates</p>
+      <ul>
+        <li><a href="grid-core.html" aria-current="page">grid-core</a></li>
+        <li><a href="grid-state.html">grid-state</a></li>
+        <li><a href="grid-plugin-api.html">grid-plugin-api</a></li>
+        <li><a href="grid-dioxus.html">grid-dioxus</a></li>
+      </ul>
+    </div>
+  </aside>
+
+  <main class="main">
+    <div class="prose">
+      <p class="eyebrow">Crates</p>
+      <h1>grid-core</h1>
+      <p class="lead">
+        The data-operations engine. It owns the vocabulary a grid uses to describe
+        what it wants — a query, a sort, a column's sortable projection — and the
+        pipeline that turns that into a page of rows. No UI, no framework, no DOM.
+        <code>#![forbid(unsafe_code)]</code>, 20 unit tests and a doctest.
+      </p>
+
+      <div class="note">
+        <div>
+          <strong>You rarely add this to your manifest.</strong>
+          <code>grid-dioxus</code> re-exports it as <code>grid_dioxus::grid_core</code>.
+          Depend on it directly only when you are building a non-Dioxus renderer or
+          testing query logic in isolation.
+        </div>
+      </div>
+
+      <h2 id="cellvalue"><a class="anchor" href="#cellvalue" aria-label="Link to this section">#</a>CellValue</h2>
+      <p>
+        The typed basis for comparison. A <code>fn(&amp;T) -&gt; String</code> sort
+        key has to allocate a lowercased <code>String</code> on every comparison,
+        which is fine at a few hundred rows and quadratically wasteful past that. A
+        column can instead project each row to a <code>CellValue</code> once, after
+        which comparisons are allocation-free.
+      </p>
+
+      <div class="code">
+        <div class="code-head"><span class="code-dot"></span>grid_core::CellValue</div>
+<pre><code><span class="k">pub enum</span> <span class="t">CellValue</span> {
+    <span class="t">Empty</span>,
+    <span class="t">Bool</span>(<span class="t">bool</span>),
+    <span class="t">Int</span>(<span class="t">i64</span>),
+    <span class="t">Number</span>(<span class="t">f64</span>),
+    <span class="t">Text</span>(<span class="t">String</span>),
+}</code></pre>
+      </div>
+
+      <p>
+        <code>From</code> is implemented for <code>&amp;str</code>,
+        <code>String</code>, <code>i64</code>, <code>f64</code> and
+        <code>bool</code>, so <code>"eng".into()</code> and
+        <code>42i64.into()</code> both work at a call site.
+      </p>
+
+      <h3>Total ordering</h3>
+      <p>
+        <code>CellValue</code> implements <code>Ord</code>, so it can drive
+        <code>sort_by</code> directly. The order is defined so that no input can
+        panic and no input leaves two values incomparable:
+      </p>
+      <ul>
+        <li><strong><code>Empty</code> sorts first.</strong> Blanks lead in ascending order.</li>
+        <li><strong>Text compares case-insensitively</strong>, matching the older string-key path so switching a column to <code>.typed</code> does not reorder it.</li>
+        <li><strong><code>Int</code> and <code>Number</code> compare numerically across variants</strong> — <code>Int(10) &lt; Number(10.5)</code>, and <code>Number(2.0) == Int(2)</code>.</li>
+        <li><strong>NaN sorts last and never panics.</strong> A NaN is greater than every non-NaN, and two NaNs compare equal.</li>
+        <li><strong>Genuinely mixed variants fall back to a fixed rank</strong>, <code>Bool &lt; Int &lt; Number &lt; Text</code>. Mixing types in one column is a caller mistake, but it must produce a stable, total order rather than an inconsistent comparator.</li>
+      </ul>
+
+      <div class="note">
+        <div>
+          <strong><code>Number(NaN) == Number(NaN)</code> is true here.</strong>
+          This deliberately differs from raw <code>f64</code>. <code>Eq</code> and
+          <code>Ord</code> have to be reflexive, so equality is defined <em>via</em>
+          the total order rather than delegating to float semantics. The practical
+          payoff is that a column full of NaNs sorts and dedups sanely instead of
+          triggering the "comparison function does not implement a total order"
+          panic from <code>sort_by</code>.
+        </div>
+      </div>
+
+      <h2 id="sort"><a class="anchor" href="#sort" aria-label="Link to this section">#</a>Sort</h2>
+      <p>
+        A single-column sort instruction. <code>ascending: true</code> is the
+        column's natural order; <code>false</code> reverses it.
+      </p>
+
+      <div class="code">
+        <div class="code-head"><span class="code-dot"></span>grid_core::Sort</div>
+<pre><code><span class="k">pub struct</span> <span class="t">Sort</span> {
+    <span class="k">pub</span> key: <span class="t">Cow</span>&lt;<span class="s">'static</span>, <span class="t">str</span>&gt;,
+    <span class="k">pub</span> ascending: <span class="t">bool</span>,
+}
+
+<span class="k">impl</span> <span class="t">Sort</span> {
+    <span class="k">pub fn</span> <span class="f">new</span>(key: <span class="k">impl</span> <span class="t">Into</span>&lt;<span class="t">Cow</span>&lt;<span class="s">'static</span>, <span class="t">str</span>&gt;&gt;, ascending: <span class="t">bool</span>) -&gt; <span class="t">Self</span>;
+    <span class="k">pub fn</span> <span class="f">asc</span>(key: <span class="k">impl</span> <span class="t">Into</span>&lt;<span class="t">Cow</span>&lt;<span class="s">'static</span>, <span class="t">str</span>&gt;&gt;) -&gt; <span class="t">Self</span>;
+    <span class="k">pub fn</span> <span class="f">desc</span>(key: <span class="k">impl</span> <span class="t">Into</span>&lt;<span class="t">Cow</span>&lt;<span class="s">'static</span>, <span class="t">str</span>&gt;&gt;) -&gt; <span class="t">Self</span>;
+    <span class="k">pub fn</span> <span class="f">key</span>(&amp;<span class="k">self</span>) -&gt; &amp;<span class="t">str</span>;
+}</code></pre>
+      </div>
+
+      <p>
+        The key is a <code>Cow&lt;'static, str&gt;</code> rather than a
+        <code>String</code> for a specific reason. In process, a column key is a
+        <code>&amp;'static str</code>, so building a <code>Sort</code> costs
+        nothing. But the same type has to survive a round trip through a server:
+        deserializing a query yields an owned key, and <code>Cow</code> covers both
+        without two types or a lifetime parameter on the query. Read it as
+        <code>&amp;str</code> with <code>Sort::key()</code>.
+      </p>
+
+      <h2 id="columndef"><a class="anchor" href="#columndef" aria-label="Link to this section">#</a>ColumnDef</h2>
+      <p>
+        The data-relevant half of a column: how to sort it. Note what is
+        <em>not</em> here — no <code>render</code>, no label, no alignment, no
+        width. Those are view concerns and live in the renderer's own column type
+        (<a href="columns.html"><code>GridColumn</code></a>). Keeping them apart is
+        what lets the engine be tested without a DOM.
+      </p>
+
+      <div class="code">
+        <div class="code-head"><span class="code-dot"></span>grid_core::ColumnDef</div>
+<pre><code><span class="k">pub struct</span> <span class="t">ColumnDef</span>&lt;<span class="t">T</span>&gt; {
+    <span class="k">pub</span> key: &amp;<span class="s">'static</span> <span class="t">str</span>,
+    <span class="k">pub</span> value: <span class="t">Option</span>&lt;<span class="k">fn</span>(&amp;<span class="t">T</span>) -&gt; <span class="t">CellValue</span>&gt;,
+    <span class="k">pub</span> sort_key: <span class="t">Option</span>&lt;<span class="k">fn</span>(&amp;<span class="t">T</span>) -&gt; <span class="t">String</span>&gt;,
+    <span class="k">pub</span> sort_num: <span class="t">Option</span>&lt;<span class="k">fn</span>(&amp;<span class="t">T</span>) -&gt; <span class="t">f64</span>&gt;,
+}
+
+<span class="k">impl</span>&lt;<span class="t">T</span>&gt; <span class="t">ColumnDef</span>&lt;<span class="t">T</span>&gt; {
+    <span class="k">pub fn</span> <span class="f">new</span>(key: &amp;<span class="s">'static</span> <span class="t">str</span>) -&gt; <span class="t">Self</span>;
+    <span class="k">pub fn</span> <span class="f">typed</span>(<span class="k">self</span>, f: <span class="k">fn</span>(&amp;<span class="t">T</span>) -&gt; <span class="t">CellValue</span>) -&gt; <span class="t">Self</span>;
+    <span class="k">pub fn</span> <span class="f">sortable</span>(<span class="k">self</span>, f: <span class="k">fn</span>(&amp;<span class="t">T</span>) -&gt; <span class="t">String</span>) -&gt; <span class="t">Self</span>;
+    <span class="k">pub fn</span> <span class="f">sortable_num</span>(<span class="k">self</span>, f: <span class="k">fn</span>(&amp;<span class="t">T</span>) -&gt; <span class="t">f64</span>) -&gt; <span class="t">Self</span>;
+}</code></pre>
+      </div>
+
+      <p>
+        <strong>Sort key precedence is <code>value</code>, then
+        <code>sort_num</code>, then <code>sort_key</code>.</strong> A column may
+        declare more than one; the typed projection always wins. This is what makes
+        <code>.typed</code> adoptable incrementally — add it to a hot column and
+        the older keys become inert without you having to delete them.
+      </p>
+      <p>
+        A column with no projection at all is simply not sortable. The pipeline
+        skips an unknown or unprojectable sort key rather than erroring or
+        reordering arbitrarily.
+      </p>
+
+      <h2 id="querymodel"><a class="anchor" href="#querymodel" aria-label="Link to this section">#</a>QueryModel</h2>
+      <p>
+        The complete description of a view: what to search, how to sort, which
+        page. It is plain cloneable data, which is the whole point — the same model
+        can be evaluated in memory today and posted to a server tomorrow without
+        changing the call site.
+      </p>
+
+      <div class="code">
+        <div class="code-head"><span class="code-dot"></span>grid_core::QueryModel</div>
+<pre><code><span class="k">pub struct</span> <span class="t">QueryModel</span> {
+    <span class="k">pub</span> search: <span class="t">String</span>,      <span class="c">// empty after trim = no filter</span>
+    <span class="k">pub</span> sort: <span class="t">Option</span>&lt;<span class="t">Sort</span>&gt;,
+    <span class="k">pub</span> page: <span class="t">usize</span>,        <span class="c">// zero-based; clamped by the source</span>
+    <span class="k">pub</span> page_size: <span class="t">usize</span>,   <span class="c">// clamped to at least 1</span>
+}
+
+<span class="k">impl</span> <span class="t">QueryModel</span> {
+    <span class="k">pub fn</span> <span class="f">new</span>(page_size: <span class="t">usize</span>) -&gt; <span class="t">Self</span>;
+    <span class="k">pub fn</span> <span class="f">with_search</span>(<span class="k">self</span>, q: <span class="k">impl</span> <span class="t">Into</span>&lt;<span class="t">String</span>&gt;) -&gt; <span class="t">Self</span>;
+    <span class="k">pub fn</span> <span class="f">with_sort</span>(<span class="k">self</span>, sort: <span class="t">Sort</span>) -&gt; <span class="t">Self</span>;
+    <span class="k">pub fn</span> <span class="f">with_page</span>(<span class="k">self</span>, page: <span class="t">usize</span>) -&gt; <span class="t">Self</span>;
+}</code></pre>
+      </div>
+
+      <h2 id="resultset"><a class="anchor" href="#resultset" aria-label="Link to this section">#</a>ResultSet</h2>
+      <p>
+        The materialised window a renderer draws. <code>total</code> is the count
+        after filtering but before pagination, which is what a footer needs;
+        <code>page</code> is the index <em>after</em> clamping, so a renderer can
+        trust it even if the caller asked for page 900 of 3.
+      </p>
+
+      <div class="code">
+        <div class="code-head"><span class="code-dot"></span>grid_core::ResultSet</div>
+<pre><code><span class="k">pub struct</span> <span class="t">ResultSet</span>&lt;<span class="t">T</span>&gt; {
+    <span class="k">pub</span> rows: <span class="t">Vec</span>&lt;<span class="t">T</span>&gt;,
+    <span class="k">pub</span> total: <span class="t">usize</span>,
+    <span class="k">pub</span> page: <span class="t">usize</span>,
+    <span class="k">pub</span> page_count: <span class="t">usize</span>,   <span class="c">// always at least 1</span>
+}
+
+<span class="k">impl</span>&lt;<span class="t">T</span>&gt; <span class="t">ResultSet</span>&lt;<span class="t">T</span>&gt; {
+    <span class="c">// 1-based bounds for "Showing X–Y of N". `from_index` is 0 when empty.</span>
+    <span class="k">pub fn</span> <span class="f">from_index</span>(&amp;<span class="k">self</span>, page_size: <span class="t">usize</span>) -&gt; <span class="t">usize</span>;
+    <span class="k">pub fn</span> <span class="f">to_index</span>(&amp;<span class="k">self</span>, page_size: <span class="t">usize</span>) -&gt; <span class="t">usize</span>;
+}</code></pre>
+      </div>
+
+      <p>
+        <code>from_index</code> and <code>to_index</code> exist so that every
+        renderer computes the "Showing 21–40 of 137" label the same way, including
+        the two edge cases that are easy to get wrong: an empty result set reports
+        <code>0</code> rather than <code>1</code>, and a partial last page reports
+        the real row count rather than <code>page * page_size</code>.
+      </p>
+
+      <h2 id="datasource"><a class="anchor" href="#datasource" aria-label="Link to this section">#</a>DataSource</h2>
+      <p>
+        One method, and the seam that makes client-side and server-side grids the
+        same code path.
+      </p>
+
+      <div class="code">
+        <div class="code-head"><span class="code-dot"></span>grid_core::DataSource</div>
+<pre><code><span class="k">pub trait</span> <span class="t">DataSource</span>&lt;<span class="t">T</span>&gt; {
+    <span class="k">fn</span> <span class="f">query</span>(&amp;<span class="k">self</span>, model: &amp;<span class="t">QueryModel</span>) -&gt; <span class="t">ResultSet</span>&lt;<span class="t">T</span>&gt;;
+}</code></pre>
+      </div>
+
+      <p>
+        The trait is object-safe, so a renderer can hold a
+        <code>Box&lt;dyn DataSource&lt;T&gt;&gt;</code> and swap a local dataset
+        for a remote one at runtime.
+      </p>
+
+      <h3>ClientSource</h3>
+      <p>The in-memory implementation, running the pipeline over a <code>Vec&lt;T&gt;</code>.</p>
+
+      <div class="code">
+        <div class="code-head"><span class="code-dot"></span>grid_core::ClientSource</div>
+<pre><code><span class="k">pub struct</span> <span class="t">ClientSource</span>&lt;<span class="t">T</span>&gt; {
+    <span class="k">pub</span> rows: <span class="t">Vec</span>&lt;<span class="t">T</span>&gt;,
+    <span class="k">pub</span> columns: <span class="t">Vec</span>&lt;<span class="t">ColumnDef</span>&lt;<span class="t">T</span>&gt;&gt;,
+    <span class="k">pub</span> search_text: <span class="t">Option</span>&lt;<span class="k">fn</span>(&amp;<span class="t">T</span>) -&gt; <span class="t">String</span>&gt;,
+}
+
+<span class="k">impl</span>&lt;<span class="t">T</span>: <span class="t">Clone</span>&gt; <span class="t">ClientSource</span>&lt;<span class="t">T</span>&gt; {
+    <span class="k">pub fn</span> <span class="f">new</span>(rows: <span class="t">Vec</span>&lt;<span class="t">T</span>&gt;, columns: <span class="t">Vec</span>&lt;<span class="t">ColumnDef</span>&lt;<span class="t">T</span>&gt;&gt;) -&gt; <span class="t">Self</span>;
+    <span class="k">pub fn</span> <span class="f">searchable</span>(<span class="k">self</span>, f: <span class="k">fn</span>(&amp;<span class="t">T</span>) -&gt; <span class="t">String</span>) -&gt; <span class="t">Self</span>;
+}</code></pre>
+      </div>
+
+      <p>
+        <code>searchable</code> attaches the projection the global search box
+        matches against — typically a <code>format!</code> of the fields a user
+        would type. Leave it off and the search term is <em>ignored</em> rather
+        than matching nothing, which is the behavior you want for a grid with no
+        search box.
+      </p>
+
+      <div class="code">
+        <div class="code-head"><span class="code-dot"></span>a query, end to end</div>
+<pre><code><span class="k">use</span> grid_core::{<span class="t">ClientSource</span>, <span class="t">ColumnDef</span>, <span class="t">DataSource</span>, <span class="t">QueryModel</span>, <span class="t">Sort</span>};
+
+<span class="k">let</span> src = <span class="t">ClientSource</span>::<span class="f">new</span>(members, <span class="f">vec!</span>[
+        <span class="t">ColumnDef</span>::<span class="f">new</span>(<span class="s">"name"</span>).<span class="f">sortable</span>(|m: &amp;<span class="t">Member</span>| m.name.<span class="f">clone</span>()),
+        <span class="t">ColumnDef</span>::<span class="f">new</span>(<span class="s">"score"</span>).<span class="f">sortable_num</span>(|m: &amp;<span class="t">Member</span>| m.score),
+    ])
+    .<span class="f">searchable</span>(|m: &amp;<span class="t">Member</span>| <span class="f">format!</span>(<span class="s">"{} {}"</span>, m.name, m.email));
+
+<span class="k">let</span> page = src.<span class="f">query</span>(
+    &amp;<span class="t">QueryModel</span>::<span class="f">new</span>(<span class="n">25</span>).<span class="f">with_search</span>(<span class="s">"acme"</span>).<span class="f">with_sort</span>(<span class="t">Sort</span>::<span class="f">asc</span>(<span class="s">"name"</span>)),
+);
+
+<span class="f">println!</span>(<span class="s">"Showing {}–{} of {}"</span>,
+    page.<span class="f">from_index</span>(<span class="n">25</span>), page.<span class="f">to_index</span>(<span class="n">25</span>), page.total);</code></pre>
+      </div>
+
+      <h3>RemoteSource</h3>
+      <p>
+        The server-side counterpart: the backend does the filtering, sorting and
+        pagination, and this hands back the page it returned.
+      </p>
+
+      <div class="code">
+        <div class="code-head"><span class="code-dot"></span>grid_core::RemoteSource</div>
+<pre><code><span class="k">pub struct</span> <span class="t">RemoteSource</span>&lt;<span class="t">T</span>, <span class="t">F</span>: <span class="t">Fn</span>(&amp;<span class="t">QueryModel</span>) -&gt; <span class="t">ResultSet</span>&lt;<span class="t">T</span>&gt;&gt; { <span class="c">/* … */</span> }
+
+<span class="k">impl</span>&lt;<span class="t">T</span>, <span class="t">F</span>: <span class="t">Fn</span>(&amp;<span class="t">QueryModel</span>) -&gt; <span class="t">ResultSet</span>&lt;<span class="t">T</span>&gt;&gt; <span class="t">RemoteSource</span>&lt;<span class="t">T</span>, <span class="t">F</span>&gt; {
+    <span class="k">pub fn</span> <span class="f">new</span>(fetch: <span class="t">F</span>) -&gt; <span class="t">Self</span>;
+}</code></pre>
+      </div>
+
+      <p>
+        The fetcher is <strong>synchronous</strong>, which surprises people, so it
+        is worth stating why. A headless engine must not pick your async runtime or
+        your HTTP client. So the host awaits the real request <em>outside</em> this
+        call — in Dioxus, typically a <code>use_resource</code> — and once it
+        resolves, wraps the already-fetched <code>ResultSet</code> in a
+        <code>RemoteSource</code>. The engine stays sync, pure and runtime-free,
+        and <code>DataSource</code> remains one trait shared with
+        <code>ClientSource</code>.
+      </p>
+
+      <h2 id="pipeline"><a class="anchor" href="#pipeline" aria-label="Link to this section">#</a>Pipeline order</h2>
+      <p>
+        <code>ClientSource::query</code> runs three stages, in this order, and the
+        order is load-bearing.
+      </p>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>Stage</th><th>Behavior</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>1. Filter</strong></td>
+              <td>Case-insensitive substring match of the trimmed search term against the <code>search_text</code> projection. An empty or whitespace-only term is a no-op; no projection means the term is ignored.</td>
+            </tr>
+            <tr>
+              <td><strong>2. Sort</strong></td>
+              <td>Resolves the sort key's column, then uses <code>value</code> / <code>sort_num</code> / <code>sort_key</code> in that precedence. Descending reverses the sorted list, so all three key paths stay consistent. An unknown key is a no-op.</td>
+            </tr>
+            <tr>
+              <td><strong>3. Paginate</strong></td>
+              <td><code>page_size</code> is clamped to at least 1, <code>page_count</code> to at least 1, and <code>page</code> into <code>0..page_count</code>. An out-of-range page lands on the last page rather than returning nothing.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <p>
+        Filtering before sorting means the sort only touches surviving rows.
+        Sorting before pagination means the page is a window into the ordered set
+        rather than an ordering of an arbitrary window — the difference between a
+        correct grid and a confusing one.
+      </p>
+
+      <h2 id="serde"><a class="anchor" href="#serde" aria-label="Link to this section">#</a>The serde feature</h2>
+      <p>
+        Optional and <strong>off by default</strong>. Enabling it derives
+        <code>Serialize</code> and <code>Deserialize</code> for
+        <code>CellValue</code>, <code>Sort</code> and <code>QueryModel</code> —
+        the types that cross a wire when a grid goes server-side. It is off by
+        default because a purely client-side grid should not pull in serde to
+        satisfy a feature it never uses.
+      </p>
+
+      <div class="code">
+        <div class="code-head"><span class="code-dot"></span>Cargo.toml</div>
+<pre><code>[<span class="t">dependencies</span>]
+<span class="f">grid-core</span> = { <span class="t">version</span> = <span class="s">"0.1"</span>, <span class="t">features</span> = [<span class="s">"serde"</span>] }</code></pre>
+      </div>
+
+      <p>
+        A <code>QueryModel</code> whose sort key came from a
+        <code>&amp;'static str</code> serializes to JSON and parses back to an
+        owned, equal model — that round trip is exactly what the
+        <code>Cow</code> key is for, and it is covered by a test.
+      </p>
+
+      <div class="pager">
+        <span></span>
+        <a class="next" href="grid-state.html"><span>Next</span>grid-state →</a>
+      </div>
+
+      <p class="ftr">
+        Dual-licensed under MIT or Apache-2.0.
+        <a href="https://github.com/iamAhsanMalik/dioxus-grid">Source on GitHub</a>.
+      </p>
+    </div>
+  </main>
+
+  <nav class="toc" aria-label="On this page">
+    <p class="toc-title">On this page</p>
+    <ul>
+      <li><a href="#cellvalue">CellValue</a></li>
+      <li><a href="#sort">Sort</a></li>
+      <li><a href="#columndef">ColumnDef</a></li>
+      <li><a href="#querymodel">QueryModel</a></li>
+      <li><a href="#resultset">ResultSet</a></li>
+      <li><a href="#datasource">DataSource</a></li>
+      <li><a href="#pipeline">Pipeline order</a></li>
+      <li><a href="#serde">The serde feature</a></li>
+    </ul>
+  </nav>
+
+</div>
+</body>
+</html>

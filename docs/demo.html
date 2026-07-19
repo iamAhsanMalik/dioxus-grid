@@ -1,0 +1,188 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Live demo — dioxus-grid</title>
+<meta name="description" content="The grid-dioxus example app running in the browser: sortable and filterable columns, an editable cell, row and bulk actions, a footer aggregate and pagination.">
+<link rel="icon" href="assets/favicon.svg">
+<link rel="stylesheet" href="assets/docs.css">
+</head>
+<body>
+
+<input type="checkbox" id="navToggle" class="nav-toggle" hidden>
+
+<header class="hdr">
+  <label for="navToggle" class="nav-btn" aria-label="Toggle navigation">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 6h18M3 12h18M3 18h18"/></svg>
+  </label>
+
+  <a class="hdr-brand" href="index.html">
+    <svg viewBox="0 0 32 32" aria-hidden="true">
+      <rect width="32" height="32" rx="7" fill="var(--accent)"/>
+      <g fill="var(--accent-ink)">
+        <rect x="6" y="8" width="20" height="3.5" rx="1"/>
+        <rect x="6" y="14.25" width="20" height="3.5" rx="1" opacity=".7"/>
+        <rect x="6" y="20.5" width="20" height="3.5" rx="1" opacity=".45"/>
+      </g>
+    </svg>
+    dioxus-grid
+    <span class="hdr-ver">v0.1.0</span>
+  </a>
+
+  <nav class="hdr-nav">
+    <a href="quickstart.html">Quickstart</a>
+    <a href="demo.html">Demo</a>
+    <a href="https://github.com/iamAhsanMalik/dioxus-grid">GitHub</a>
+  </nav>
+</header>
+
+<div class="shell">
+
+  <aside class="nav">
+    <div class="nav-group">
+      <p class="nav-title">Guides</p>
+      <ul>
+        <li><a href="index.html">Introduction</a></li>
+        <li><a href="quickstart.html">Quickstart</a></li>
+        <li><a href="columns.html">Columns</a></li>
+        <li><a href="sorting-filtering.html">Sorting &amp; filtering</a></li>
+        <li><a href="selection-paging.html">Selection &amp; paging</a></li>
+        <li><a href="styling.html">Styling</a></li>
+        <li><a href="bundle-size.html">Bundle size</a></li>
+        <li><a href="demo.html" aria-current="page">Live demo</a></li>
+      </ul>
+    </div>
+    <div class="nav-group">
+      <p class="nav-title">Crates</p>
+      <ul>
+        <li><a href="grid-core.html">grid-core</a></li>
+        <li><a href="grid-state.html">grid-state</a></li>
+        <li><a href="grid-plugin-api.html">grid-plugin-api</a></li>
+        <li><a href="grid-dioxus.html">grid-dioxus</a></li>
+      </ul>
+    </div>
+  </aside>
+
+  <main class="main">
+    <div class="prose">
+      <p class="eyebrow">Guides</p>
+      <h1>Live demo</h1>
+      <p class="lead">
+        The example app from the repository, compiled to wasm and running below. It is
+        a single component of about sixty lines over a forty-two-row product list —
+        everything you see comes from what the four columns declare.
+      </p>
+
+      <div class="frame">
+        <iframe src="demo/" title="grid-dioxus basic example" loading="lazy"></iframe>
+      </div>
+
+      <h2 id="try"><a class="anchor" href="#try" aria-label="Link to this section">#</a>What to try</h2>
+      <ul>
+        <li>Click a header to sort, then click it twice more — ascending, descending, back to the dataset's own order.</li>
+        <li>Shift-click a second header to add it as a tie-breaker after the primary sort.</li>
+        <li>Open the funnel on <strong>Category</strong>: it is a <code>Set</code> filter, so the choices are the column's distinct values.</li>
+        <li>Filter <strong>Price</strong> or <strong>Stock</strong> numerically, and watch the <strong>Price</strong> footer total follow the filtered set rather than the visible page.</li>
+        <li>Double-click a name to edit it in place. The commit fires an event; the app applies it to its own signal.</li>
+        <li>Select a few rows, then select a whole page, then page forward — the selection accumulates and the bulk bar appears.</li>
+        <li>Drag a header to reorder, drag its edge to resize, and hide a column from the chooser.</li>
+        <li>Switch to card view. Search, filters, sort, page and selection all survive the switch.</li>
+      </ul>
+
+      <div class="note">
+        <div>
+          <strong>The demo ships the reference stylesheet.</strong>
+          None of this appearance comes from the crate — <code>grid-dioxus</code>
+          contains no CSS. The demo's stylesheet is
+          <code>examples/basic/assets/grid.css</code>, which is also the file to copy
+          as a starting point. See <a href="styling.html">styling</a>.
+        </div>
+      </div>
+
+      <h2 id="source"><a class="anchor" href="#source" aria-label="Link to this section">#</a>The source</h2>
+      <p>
+        The columns are the interesting part. Each carries its own projections, and
+        the grid reads them — the app never writes table markup:
+      </p>
+
+      <div class="code">
+        <div class="code-head"><span class="code-dot"></span>examples/basic/src/main.rs</div>
+<pre><code><span class="k">let</span> columns = <span class="f">vec!</span>[
+    <span class="t">GridColumn</span>::<span class="f">new</span>(<span class="s">"name"</span>, <span class="s">"Name"</span>, |p: &amp;<span class="t">Product</span>| <span class="f">rsx!</span> { <span class="k">strong</span> { <span class="s">"{p.name}"</span> } })
+        .<span class="f">sortable</span>(|p: &amp;<span class="t">Product</span>| p.name.<span class="f">clone</span>())
+        .<span class="f">editable</span>(|p: &amp;<span class="t">Product</span>| p.name.<span class="f">clone</span>()),
+    <span class="t">GridColumn</span>::<span class="f">new</span>(<span class="s">"category"</span>, <span class="s">"Category"</span>, |p: &amp;<span class="t">Product</span>| <span class="f">rsx!</span> { <span class="s">"{p.category}"</span> })
+        .<span class="f">sortable</span>(|p: &amp;<span class="t">Product</span>| p.category.<span class="f">clone</span>())
+        .<span class="f">filter</span>(<span class="t">FilterKind</span>::<span class="t">Set</span>),
+    <span class="t">GridColumn</span>::<span class="f">new</span>(<span class="s">"price"</span>, <span class="s">"Price"</span>, |p: &amp;<span class="t">Product</span>| <span class="f">rsx!</span> { <span class="s">"${p.price:.2}"</span> })
+        .<span class="f">sortable_num</span>(|p: &amp;<span class="t">Product</span>| p.price)
+        .<span class="f">aggregate</span>(<span class="t">Aggregate</span>::<span class="t">Sum</span>),
+    <span class="t">GridColumn</span>::<span class="f">new</span>(<span class="s">"stock"</span>, <span class="s">"Stock"</span>, |p: &amp;<span class="t">Product</span>| <span class="f">rsx!</span> { <span class="s">"{p.stock}"</span> })
+        .<span class="f">sortable_num</span>(|p: &amp;<span class="t">Product</span>| p.stock <span class="k">as</span> <span class="t">f64</span>),
+];</code></pre>
+      </div>
+
+      <p>
+        Four columns, and between them: sorting on all four, a set filter, numeric
+        filters, an editable cell, a footer total, group-by candidates, and the
+        projections export uses. No feature here needed a second piece of
+        configuration.
+      </p>
+
+      <p>The full file is <code>examples/basic/src/main.rs</code> in the repository.</p>
+
+      <h2 id="run-locally"><a class="anchor" href="#run-locally" aria-label="Link to this section">#</a>Running it locally</h2>
+      <p>
+        Clone the repository and serve the example with the Dioxus CLI. Editing the
+        example, the renderer or the reference stylesheet hot-reloads.
+      </p>
+
+      <div class="code">
+        <div class="code-head"><span class="code-dot"></span>Terminal</div>
+<pre><code>git clone https://github.com/iamAhsanMalik/dioxus-grid
+cd dioxus-grid
+dx serve --package grid-basic-example --web</code></pre>
+      </div>
+
+      <p>
+        To compile the type-erased render path instead — the one wasm builds select by
+        default, and the reason a multi-row-type app does not ship a copy of the
+        renderer per row type — add the feature:
+      </p>
+
+      <div class="code">
+        <div class="code-head"><span class="code-dot"></span>Terminal</div>
+<pre><code>dx serve --package grid-basic-example --web --features force-erased</code></pre>
+      </div>
+
+      <p>
+        Both paths behave identically; only the generated code differs. See
+        <a href="bundle-size.html">bundle size</a> for why there are two and when to
+        override the choice.
+      </p>
+
+      <div class="pager">
+        <a href="bundle-size.html"><span>Previous</span>← Bundle size</a>
+        <span></span>
+      </div>
+
+      <p class="ftr">
+        Dual-licensed under MIT or Apache-2.0.
+        <a href="https://github.com/iamAhsanMalik/dioxus-grid">Source on GitHub</a>.
+      </p>
+    </div>
+  </main>
+
+  <nav class="toc" aria-label="On this page">
+    <p class="toc-title">On this page</p>
+    <ul>
+      <li><a href="#try">What to try</a></li>
+      <li><a href="#source">The source</a></li>
+      <li><a href="#run-locally">Running it locally</a></li>
+    </ul>
+  </nav>
+
+</div>
+</body>
+</html>

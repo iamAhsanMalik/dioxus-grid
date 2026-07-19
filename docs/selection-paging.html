@@ -1,0 +1,390 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Selection &amp; paging — dioxus-grid</title>
+<meta name="description" content="Row and page selection, bulk actions derived from row actions, pagination and page-size behaviour, and row virtualization.">
+<link rel="icon" href="assets/favicon.svg">
+<link rel="stylesheet" href="assets/docs.css">
+</head>
+<body>
+
+<input type="checkbox" id="navToggle" class="nav-toggle" hidden>
+
+<header class="hdr">
+  <label for="navToggle" class="nav-btn" aria-label="Toggle navigation">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 6h18M3 12h18M3 18h18"/></svg>
+  </label>
+
+  <a class="hdr-brand" href="index.html">
+    <svg viewBox="0 0 32 32" aria-hidden="true">
+      <rect width="32" height="32" rx="7" fill="var(--accent)"/>
+      <g fill="var(--accent-ink)">
+        <rect x="6" y="8" width="20" height="3.5" rx="1"/>
+        <rect x="6" y="14.25" width="20" height="3.5" rx="1" opacity=".7"/>
+        <rect x="6" y="20.5" width="20" height="3.5" rx="1" opacity=".45"/>
+      </g>
+    </svg>
+    dioxus-grid
+    <span class="hdr-ver">v0.1.0</span>
+  </a>
+
+  <nav class="hdr-nav">
+    <a href="quickstart.html">Quickstart</a>
+    <a href="demo.html">Demo</a>
+    <a href="https://github.com/iamAhsanMalik/dioxus-grid">GitHub</a>
+  </nav>
+</header>
+
+<div class="shell">
+
+  <aside class="nav">
+    <div class="nav-group">
+      <p class="nav-title">Guides</p>
+      <ul>
+        <li><a href="index.html">Introduction</a></li>
+        <li><a href="quickstart.html">Quickstart</a></li>
+        <li><a href="columns.html">Columns</a></li>
+        <li><a href="sorting-filtering.html">Sorting &amp; filtering</a></li>
+        <li><a href="selection-paging.html" aria-current="page">Selection &amp; paging</a></li>
+        <li><a href="styling.html">Styling</a></li>
+        <li><a href="bundle-size.html">Bundle size</a></li>
+        <li><a href="demo.html">Live demo</a></li>
+      </ul>
+    </div>
+    <div class="nav-group">
+      <p class="nav-title">Crates</p>
+      <ul>
+        <li><a href="grid-core.html">grid-core</a></li>
+        <li><a href="grid-state.html">grid-state</a></li>
+        <li><a href="grid-plugin-api.html">grid-plugin-api</a></li>
+        <li><a href="grid-dioxus.html">grid-dioxus</a></li>
+      </ul>
+    </div>
+  </aside>
+
+  <main class="main">
+    <div class="prose">
+      <p class="eyebrow">Guides</p>
+      <h1>Selection &amp; paging</h1>
+      <p class="lead">
+        Selection is a set of row ids, so it survives sorting, filtering and paging.
+        Pagination is clamped and resets on anything that changes the result set. Both
+        state machines live in <code>grid-state</code>, which is why they behave the
+        same way every time.
+      </p>
+
+      <h2 id="selection"><a class="anchor" href="#selection" aria-label="Link to this section">#</a>Enabling selection</h2>
+      <p>
+        <code>selectable: true</code> adds a checkbox to each row and a select-page
+        checkbox in the header. <code>on_selection</code> fires with the full set of
+        selected ids whenever it changes.
+      </p>
+
+      <div class="code">
+        <div class="code-head"><span class="code-dot"></span>Selection</div>
+<pre><code><span class="k">let</span> <span class="k">mut</span> selected = <span class="f">use_signal</span>(<span class="t">Vec</span>::&lt;<span class="t">String</span>&gt;::new);
+
+<span class="f">rsx!</span> {
+    <span class="t">DataGrid</span> {
+        rows,
+        columns,
+        row_id: |p: &amp;<span class="t">Product</span>| p.id.<span class="f">to_string</span>(),
+        selectable: <span class="k">true</span>,
+        on_selection: <span class="k">move</span> |ids: <span class="t">Vec</span>&lt;<span class="t">String</span>&gt;| selected.<span class="f">set</span>(ids),
+    }
+}</code></pre>
+      </div>
+
+      <p>
+        The ids are whatever <code>row_id</code> produces, which is why that prop is
+        required. Selection is keyed by identity rather than by row index or by row
+        value: an index would break the moment the user sorted, and a value would
+        break the moment anything was edited.
+      </p>
+
+      <div class="note">
+        <div>
+          <strong>Selection is unordered.</strong>
+          <code>selected_ids()</code> returns the set's contents in arbitrary order.
+          If display order matters, sort the ids at the call site.
+        </div>
+      </div>
+
+      <h2 id="page-selection"><a class="anchor" href="#page-selection" aria-label="Link to this section">#</a>Select page</h2>
+      <p>
+        The header checkbox is a page toggle, not a select-all. Pressing it selects
+        every row on the current page — unless the page is already fully selected, in
+        which case it deselects that page and leaves the rest of your selection alone.
+      </p>
+      <p>
+        It deliberately does not reach beyond the page. "Select all 40,000 matching
+        rows" is a different, much more consequential action than "select these
+        twenty", and conflating them is how people delete things they did not mean to.
+        A partially selected page tops up to fully selected rather than clearing,
+        which is the behaviour that matches what the click looks like.
+      </p>
+      <p>
+        Because selection is a set of ids, it accumulates across pages: check five
+        rows, page forward, check five more, and you have ten selected. Nothing is
+        dropped by navigating.
+      </p>
+
+      <h2 id="grid-state"><a class="anchor" href="#grid-state" aria-label="Link to this section">#</a>Driving selection directly</h2>
+      <p>
+        The renderer holds a single <code>GridState</code> and calls intent methods on
+        it. You can drive the same value yourself — in tests, or in a renderer of your
+        own.
+      </p>
+
+      <div class="code">
+        <div class="code-head"><span class="code-dot"></span>grid-state selection</div>
+<pre><code><span class="k">use</span> grid_state::<span class="t">GridState</span>;
+
+<span class="k">let</span> <span class="k">mut</span> s = <span class="t">GridState</span>::<span class="f">new</span>(<span class="n">10</span>, <span class="k">false</span>);
+<span class="k">let</span> page = <span class="f">vec!</span>[<span class="s">"a"</span>.<span class="f">to_string</span>(), <span class="s">"b"</span>.<span class="f">to_string</span>(), <span class="s">"c"</span>.<span class="f">to_string</span>()];
+
+s.<span class="f">toggle_row</span>(<span class="s">"b"</span>);
+<span class="f">assert!</span>(s.<span class="f">is_selected</span>(<span class="s">"b"</span>));
+<span class="f">assert_eq!</span>(s.<span class="f">selection_count</span>(), <span class="n">1</span>);
+
+s.<span class="f">toggle_page</span>(&amp;page);            <span class="c">// partial → select the whole page</span>
+<span class="f">assert!</span>(s.<span class="f">is_page_selected</span>(&amp;page));
+<span class="f">assert_eq!</span>(s.<span class="f">selection_count</span>(), <span class="n">3</span>);
+
+s.<span class="f">toggle_page</span>(&amp;page);            <span class="c">// full → deselect the whole page</span>
+<span class="f">assert_eq!</span>(s.<span class="f">selection_count</span>(), <span class="n">0</span>);
+
+s.<span class="f">clear_selection</span>();</code></pre>
+      </div>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>Method</th><th>Returns</th><th>Notes</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>is_selected(&amp;str)</code></td><td><code>bool</code></td><td>Membership by id.</td></tr>
+            <tr><td><code>selection_count()</code></td><td><code>usize</code></td><td>Total selected, across all pages.</td></tr>
+            <tr><td><code>selected_ids()</code></td><td><code>Vec&lt;String&gt;</code></td><td>Unordered.</td></tr>
+            <tr><td><code>is_page_selected(&amp;[String])</code></td><td><code>bool</code></td><td>False for an empty page — nothing is not "all".</td></tr>
+            <tr><td><code>toggle_row(&amp;str)</code></td><td>—</td><td>Add or remove one id.</td></tr>
+            <tr><td><code>toggle_page(&amp;[String])</code></td><td>—</td><td>Select the page, or deselect it if already full.</td></tr>
+            <tr><td><code>clear_selection()</code></td><td>—</td><td>Empty the set.</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h2 id="bulk"><a class="anchor" href="#bulk" aria-label="Link to this section">#</a>Bulk actions</h2>
+      <p>
+        Selection is only useful if you can act on it. Supplying
+        <code>on_bulk_action</code> makes the grid build a bulk bar for you from the
+        actions the selected rows already declare — the same
+        <code>GridAction</code>s their kebab menus offer.
+      </p>
+
+      <div class="code">
+        <div class="code-head"><span class="code-dot"></span>Derived bulk bar</div>
+<pre><code><span class="k">use</span> grid_dioxus::<span class="t">GridAction</span>;
+
+<span class="t">DataGrid</span> {
+    rows,
+    columns,
+    row_id: |p: &amp;<span class="t">Product</span>| p.id.<span class="f">to_string</span>(),
+    selectable: <span class="k">true</span>,
+    actions: <span class="t">Some</span>((|_p: &amp;<span class="t">Product</span>| <span class="f">vec!</span>[
+        <span class="t">GridAction</span>::<span class="f">new</span>(<span class="s">"edit"</span>, <span class="s">"Edit"</span>).<span class="f">no_bulk</span>(),   <span class="c">// single-row only</span>
+        <span class="t">GridAction</span>::<span class="f">new</span>(<span class="s">"archive"</span>, <span class="s">"Archive"</span>),
+        <span class="t">GridAction</span>::<span class="f">danger</span>(<span class="s">"delete"</span>, <span class="s">"Delete"</span>),
+    ]) <span class="k">as</span> <span class="k">fn</span>(&amp;<span class="t">Product</span>) -&gt; <span class="t">Vec</span>&lt;<span class="t">GridAction</span>&gt;),
+    on_bulk_action: <span class="k">move</span> |(key, rows): (&amp;<span class="k">'static</span> <span class="t">str</span>, <span class="t">Vec</span>&lt;<span class="t">Product</span>&gt;)| {
+        <span class="k">match</span> key {
+            <span class="s">"archive"</span> =&gt; <span class="f">archive_all</span>(&amp;rows),
+            <span class="s">"delete"</span> =&gt; <span class="f">delete_all</span>(&amp;rows),
+            _ =&gt; {}
+        }
+    },
+}</code></pre>
+      </div>
+
+      <p>
+        The bar shows the <em>intersection</em> of the selected rows' actions, in the
+        order the first row lists them. An action survives only if every selected row
+        offers it and none of them mark it disabled. That falls out of the same
+        per-row logic, so a bulk bar can never offer an operation that is invalid for
+        one of the rows it would apply to.
+      </p>
+      <p>
+        Handlers receive the resolved <code>Vec&lt;T&gt;</code>, not ids, so you do
+        not look rows back up yourself.
+      </p>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th><code>GridAction</code></th><th>Effect</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>GridAction::new(key, label)</code></td><td>A normal entry.</td></tr>
+            <tr><td><code>GridAction::danger(key, label)</code></td><td>Marked destructive, for your CSS to style.</td></tr>
+            <tr><td><code>.icon(path)</code></td><td>A leading icon: SVG path data on a 24×24 stroke-based viewBox.</td></tr>
+            <tr><td><code>.quick()</code></td><td>Also surface it inline beside the kebab. Requires an icon.</td></tr>
+            <tr><td><code>.disabled()</code></td><td>Shown but not actionable; excluded from bulk.</td></tr>
+            <tr><td><code>.no_bulk()</code></td><td>Single-row only — kept in the kebab, omitted from the bulk bar.</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <p>
+        <code>.no_bulk()</code> exists for actions that are meaningless in aggregate.
+        "Edit" opens one record's form; offering it for forty selected rows is a bug
+        waiting to be reported.
+      </p>
+      <p>
+        For UI the derived bar cannot express, the <code>bulk</code> prop takes an
+        <code>Element</code> rendered in the toolbar whenever at least one row is
+        selected. It renders in addition to the derived bar, so you can have both.
+      </p>
+
+      <h2 id="paging"><a class="anchor" href="#paging" aria-label="Link to this section">#</a>Pagination</h2>
+      <p>
+        The footer shows the current range, a rows-per-page picker (10, 25, 50, 100)
+        and previous/next buttons, which disable at the ends rather than wrapping.
+      </p>
+
+      <div class="code">
+        <div class="code-head"><span class="code-dot"></span>Page size</div>
+<pre><code><span class="t">DataGrid</span> {
+    rows,
+    columns,
+    row_id: |p: &amp;<span class="t">Product</span>| p.id.<span class="f">to_string</span>(),
+    page_size: <span class="n">25</span>,        <span class="c">// initial value; defaults to 10, clamped to ≥ 1</span>
+}</code></pre>
+      </div>
+
+      <p>Two rules keep the page index honest:</p>
+      <ul>
+        <li>
+          <strong>Anything that changes the result set resets to page 0.</strong>
+          Search, sort and page size all do. Page 7 of a re-sorted list is a different
+          seven pages of data, so keeping the index would show rows unrelated to what
+          the user just did.
+        </li>
+        <li>
+          <strong>Paging is clamped into range.</strong>
+          <code>next_page</code> stops at the last page, <code>prev_page</code> stops
+          at 0, and a page index past the end is clamped when the query runs. Filtering
+          a thousand rows down to three cannot leave you stranded on an empty page 40.
+        </li>
+      </ul>
+
+      <div class="code">
+        <div class="code-head"><span class="code-dot"></span>Paging intents</div>
+<pre><code><span class="k">use</span> grid_state::<span class="t">GridState</span>;
+
+<span class="k">let</span> <span class="k">mut</span> s = <span class="t">GridState</span>::<span class="f">new</span>(<span class="n">10</span>, <span class="k">false</span>);
+s.<span class="f">next_page</span>(<span class="n">3</span>);              <span class="c">// 0 → 1; needs the page count to clamp</span>
+s.<span class="f">next_page</span>(<span class="n">3</span>);              <span class="c">// 1 → 2</span>
+s.<span class="f">next_page</span>(<span class="n">3</span>);              <span class="c">// last page → no-op</span>
+<span class="f">assert_eq!</span>(s.<span class="f">page</span>(), <span class="n">2</span>);
+s.<span class="f">prev_page</span>();
+<span class="f">assert_eq!</span>(s.<span class="f">page</span>(), <span class="n">1</span>);
+
+s.<span class="f">set_page_size</span>(<span class="n">50</span>);         <span class="c">// → page 0</span>
+<span class="f">assert_eq!</span>(s.<span class="f">page</span>(), <span class="n">0</span>);</code></pre>
+      </div>
+
+      <p>
+        <code>next_page</code> takes the page count because <code>GridState</code>
+        holds no data and cannot know how many pages exist — the count comes from the
+        latest <code>GridPage</code>. That is the same separation that lets the state
+        machine be unit tested without any rows at all.
+      </p>
+      <p>
+        Selection is untouched by paging. Neither turning a page nor changing the page
+        size clears it, so a cross-page selection is safe to build up before acting on
+        it.
+      </p>
+
+      <h2 id="virtualization"><a class="anchor" href="#virtualization" aria-label="Link to this section">#</a>Large pages</h2>
+      <p>
+        Above roughly sixty rows on a page, the list view renders only the visible
+        window plus an overscan, padded top and bottom with spacers. Below that
+        threshold every row renders with natural height and no fixed sizing — the
+        common case pays nothing.
+      </p>
+      <p>
+        Virtualization needs uniform row heights, so it applies only to the plain
+        columnar table. Card view, grouped view and a custom <code>row</code> slot
+        render flat. If you use "100 / page" with a custom row renderer, expect the
+        full hundred in the DOM.
+      </p>
+
+      <div class="note">
+        <div>
+          <strong>Pagination is not just a UI convenience.</strong>
+          It is the mechanism that keeps the DOM small. For datasets past what a
+          browser should hold at all, move the query server-side with
+          <code>on_query</code> — see
+          <a href="sorting-filtering.html#remote">server-side querying</a>.
+        </div>
+      </div>
+
+      <h2 id="views"><a class="anchor" href="#views" aria-label="Link to this section">#</a>View mode</h2>
+      <p>
+        The toolbar toggles between the row list and a card gallery.
+        <code>ViewMode</code> lives in <code>GridState</code> alongside the query, so
+        switching views keeps your search, filters, sort, page and selection exactly
+        as they were.
+      </p>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>Prop</th><th>Effect</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>grid_default: true</code></td><td>Start in card view.</td></tr>
+            <tr><td><code>no_card_toggle: true</code></td><td>Hide the toggle and stay in list view.</td></tr>
+            <tr><td><code>card</code></td><td>Custom card body. When <code>None</code>, one is built from the columns.</td></tr>
+            <tr><td><code>density: GridDensity::Minimal</code></td><td>Strips the filter funnels, column chooser and group-by, and hides the footer when everything fits one page.</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <p>
+        Use <code>no_card_toggle</code> for inherently tabular data — a permission
+        matrix, a ledger — where a gallery view carries no meaning and the toggle is
+        just noise. Use <code>Minimal</code> density for small, glanceable sets: sort,
+        selection, search and export still work, but the enterprise chrome is gone.
+      </p>
+
+      <div class="pager">
+        <a href="sorting-filtering.html"><span>Previous</span>← Sorting &amp; filtering</a>
+        <a class="next" href="styling.html"><span>Next</span>Styling →</a>
+      </div>
+
+      <p class="ftr">
+        Dual-licensed under MIT or Apache-2.0.
+        <a href="https://github.com/iamAhsanMalik/dioxus-grid">Source on GitHub</a>.
+      </p>
+    </div>
+  </main>
+
+  <nav class="toc" aria-label="On this page">
+    <p class="toc-title">On this page</p>
+    <ul>
+      <li><a href="#selection">Enabling selection</a></li>
+      <li><a href="#page-selection">Select page</a></li>
+      <li><a href="#grid-state">Driving selection directly</a></li>
+      <li><a href="#bulk">Bulk actions</a></li>
+      <li><a href="#paging">Pagination</a></li>
+      <li><a href="#virtualization">Large pages</a></li>
+      <li><a href="#views">View mode</a></li>
+    </ul>
+  </nav>
+
+</div>
+</body>
+</html>

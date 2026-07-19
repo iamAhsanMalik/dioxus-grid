@@ -1,0 +1,396 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Columns — dioxus-grid</title>
+<meta name="description" content="Declaring GridColumn: cell renderers, sort and filter projections, alignment, width, inline editing, footer aggregates and CSV projections.">
+<link rel="icon" href="assets/favicon.svg">
+<link rel="stylesheet" href="assets/docs.css">
+</head>
+<body>
+
+<input type="checkbox" id="navToggle" class="nav-toggle" hidden>
+
+<header class="hdr">
+  <label for="navToggle" class="nav-btn" aria-label="Toggle navigation">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 6h18M3 12h18M3 18h18"/></svg>
+  </label>
+
+  <a class="hdr-brand" href="index.html">
+    <svg viewBox="0 0 32 32" aria-hidden="true">
+      <rect width="32" height="32" rx="7" fill="var(--accent)"/>
+      <g fill="var(--accent-ink)">
+        <rect x="6" y="8" width="20" height="3.5" rx="1"/>
+        <rect x="6" y="14.25" width="20" height="3.5" rx="1" opacity=".7"/>
+        <rect x="6" y="20.5" width="20" height="3.5" rx="1" opacity=".45"/>
+      </g>
+    </svg>
+    dioxus-grid
+    <span class="hdr-ver">v0.1.0</span>
+  </a>
+
+  <nav class="hdr-nav">
+    <a href="quickstart.html">Quickstart</a>
+    <a href="demo.html">Demo</a>
+    <a href="https://github.com/iamAhsanMalik/dioxus-grid">GitHub</a>
+  </nav>
+</header>
+
+<div class="shell">
+
+  <aside class="nav">
+    <div class="nav-group">
+      <p class="nav-title">Guides</p>
+      <ul>
+        <li><a href="index.html">Introduction</a></li>
+        <li><a href="quickstart.html">Quickstart</a></li>
+        <li><a href="columns.html" aria-current="page">Columns</a></li>
+        <li><a href="sorting-filtering.html">Sorting &amp; filtering</a></li>
+        <li><a href="selection-paging.html">Selection &amp; paging</a></li>
+        <li><a href="styling.html">Styling</a></li>
+        <li><a href="bundle-size.html">Bundle size</a></li>
+        <li><a href="demo.html">Live demo</a></li>
+      </ul>
+    </div>
+    <div class="nav-group">
+      <p class="nav-title">Crates</p>
+      <ul>
+        <li><a href="grid-core.html">grid-core</a></li>
+        <li><a href="grid-state.html">grid-state</a></li>
+        <li><a href="grid-plugin-api.html">grid-plugin-api</a></li>
+        <li><a href="grid-dioxus.html">grid-dioxus</a></li>
+      </ul>
+    </div>
+  </aside>
+
+  <main class="main">
+    <div class="prose">
+      <p class="eyebrow">Guides</p>
+      <h1>Columns</h1>
+      <p class="lead">
+        A column is a key, a header label, a cell renderer, and a set of optional
+        projections. The projections are what turn features on: declaring a sort key
+        is what makes a column sortable, filterable, groupable and exportable at
+        once.
+      </p>
+
+      <h2 id="shape"><a class="anchor" href="#shape" aria-label="Link to this section">#</a>The shape of a column</h2>
+      <p>
+        <code>GridColumn::new</code> takes the three things every column needs; the
+        rest are builder methods that return <code>Self</code>.
+      </p>
+
+      <div class="code">
+        <div class="code-head"><span class="code-dot"></span>Constructor</div>
+<pre><code><span class="t">GridColumn</span>::<span class="f">new</span>(
+    key: &amp;<span class="k">'static</span> <span class="t">str</span>,        <span class="c">// stable identity: sort, filter, persistence</span>
+    label: &amp;<span class="k">'static</span> <span class="t">str</span>,      <span class="c">// header text, and the CSV/Excel header</span>
+    render: <span class="k">fn</span>(&amp;<span class="t">T</span>) -&gt; <span class="t">Element</span>, <span class="c">// the cell body</span>
+)</code></pre>
+      </div>
+
+      <p>
+        <code>render</code> is a plain <code>fn</code> pointer, not a closure, which
+        is what keeps <code>GridColumn&lt;T&gt;</code> <code>Clone + PartialEq</code>
+        so Dioxus can diff props. It also means a cell cannot close over your
+        component's state. That is not a limitation in practice: everything a cell
+        needs comes from the row, and row-specific interactivity belongs in
+        <code>actions</code> or <code>on_row_click</code>, which are event handlers
+        and do capture.
+      </p>
+      <p>
+        The <code>key</code> must be stable across releases if you use
+        <code>persist_key</code>. A saved layout referencing a key that no longer
+        exists is dropped silently, so renaming a key loses that column's saved
+        width and position but never breaks the grid.
+      </p>
+
+      <h2 id="builders"><a class="anchor" href="#builders" aria-label="Link to this section">#</a>Builders</h2>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>Builder</th><th>Signature</th><th>What it enables</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>.sortable</code></td><td><code>fn(&amp;T) -&gt; String</code></td><td>Text sort key. Also enables filtering, grouping, Set-filter distinct values and CSV export for this column.</td></tr>
+            <tr><td><code>.sortable_num</code></td><td><code>fn(&amp;T) -&gt; f64</code></td><td>Numeric sort key. Wins over <code>.sortable</code> when both are present. Enables numeric filter operators and aggregates.</td></tr>
+            <tr><td><code>.editable</code></td><td><code>fn(&amp;T) -&gt; String</code></td><td>Inline editing. The projection seeds the editor with the cell's current text.</td></tr>
+            <tr><td><code>.aggregate</code></td><td><code>Aggregate</code></td><td>A footer cell summarising this column over the filtered set.</td></tr>
+            <tr><td><code>.filter</code></td><td><code>FilterKind</code></td><td>Picks the filter control explicitly instead of inferring it.</td></tr>
+            <tr><td><code>.csv</code></td><td><code>fn(&amp;T) -&gt; String</code></td><td>An export-only projection, for when the display differs from what belongs in the file.</td></tr>
+            <tr><td><code>.width</code></td><td><code>&amp;'static str</code></td><td>Applied as a min-width, e.g. <code>"12rem"</code>.</td></tr>
+            <tr><td><code>.right</code></td><td>—</td><td>Right-align the cell and header.</td></tr>
+            <tr><td><code>.center</code></td><td>—</td><td>Centre-align the cell and header.</td></tr>
+            <tr><td><code>.mobile_hidden</code></td><td>—</td><td>Hide the column below the <code>md</code> breakpoint.</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="note">
+        <div>
+          <strong>Sortable implies filterable, and groupable.</strong>
+          The filter stage, the group-by menu and CSV export all reuse the sort
+          projection, because a column you can order is by definition a column whose
+          values can be compared and read. There is no second set of configuration
+          to keep in sync.
+        </div>
+      </div>
+
+      <h2 id="rendering"><a class="anchor" href="#rendering" aria-label="Link to this section">#</a>Rendering cells</h2>
+      <p>
+        The renderer returns an <code>Element</code>, so a cell can be anything —
+        text, a badge, a nested component, an image.
+      </p>
+
+      <div class="code">
+        <div class="code-head"><span class="code-dot"></span>Cell renderers</div>
+<pre><code><span class="k">let</span> columns = <span class="f">vec!</span>[
+    <span class="c">// Plain text.</span>
+    <span class="t">GridColumn</span>::<span class="f">new</span>(<span class="s">"sku"</span>, <span class="s">"SKU"</span>, |p: &amp;<span class="t">Product</span>| <span class="f">rsx!</span> { <span class="s">"{p.sku}"</span> }),
+
+    <span class="c">// Markup.</span>
+    <span class="t">GridColumn</span>::<span class="f">new</span>(<span class="s">"name"</span>, <span class="s">"Name"</span>, |p: &amp;<span class="t">Product</span>| <span class="f">rsx!</span> { <span class="k">strong</span> { <span class="s">"{p.name}"</span> } })
+        .<span class="f">sortable</span>(|p: &amp;<span class="t">Product</span>| p.name.<span class="f">clone</span>()),
+
+    <span class="c">// Formatted display, numeric sort. The display string and the sort key</span>
+    <span class="c">// are independent, so "$1,299.00" still orders numerically.</span>
+    <span class="t">GridColumn</span>::<span class="f">new</span>(<span class="s">"price"</span>, <span class="s">"Price"</span>, |p: &amp;<span class="t">Product</span>| <span class="f">rsx!</span> { <span class="s">"${p.price:.2}"</span> })
+        .<span class="f">sortable_num</span>(|p: &amp;<span class="t">Product</span>| p.price)
+        .<span class="f">right</span>(),
+];</code></pre>
+      </div>
+
+      <p>
+        This separation is the point. A column that formats currency, renders a
+        status pill or shows a relative date still sorts and filters on the
+        underlying value, because the projection is declared next to the renderer
+        rather than derived from it.
+      </p>
+
+      <h2 id="projections"><a class="anchor" href="#projections" aria-label="Link to this section">#</a>Projection precedence</h2>
+      <p>
+        A column can carry several projections. When the engine needs a comparable
+        value it resolves them in a fixed order, so you only declare what differs
+        from the default:
+      </p>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>Operation</th><th>Precedence</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>Sort, filter, group</td><td><code>sort_num</code> → <code>sort_key</code></td></tr>
+            <tr><td>Aggregate</td><td><code>sort_num</code> (<code>Count</code> ignores the column entirely)</td></tr>
+            <tr><td>Export cell</td><td><code>csv</code> → <code>sort_key</code> → <code>sort_num</code> → empty</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <p>
+        A column with none of the three renders fine but is inert: no sort button, no
+        filter, and an empty cell in the exported file. That is the right default for
+        a column of buttons or thumbnails.
+      </p>
+
+      <h2 id="editing"><a class="anchor" href="#editing" aria-label="Link to this section">#</a>Inline editing</h2>
+      <p>
+        <code>.editable(…)</code> makes the cell open an input on double-click. Enter
+        or blur commits, Escape cancels. Only one cell edits at a time.
+      </p>
+
+      <div class="code">
+        <div class="code-head"><span class="code-dot"></span>Editable column plus handler</div>
+<pre><code><span class="t">GridColumn</span>::<span class="f">new</span>(<span class="s">"name"</span>, <span class="s">"Name"</span>, |p: &amp;<span class="t">Product</span>| <span class="f">rsx!</span> { <span class="k">strong</span> { <span class="s">"{p.name}"</span> } })
+    .<span class="f">sortable</span>(|p: &amp;<span class="t">Product</span>| p.name.<span class="f">clone</span>())
+    .<span class="f">editable</span>(|p: &amp;<span class="t">Product</span>| p.name.<span class="f">clone</span>()),</code></pre>
+      </div>
+
+      <p>
+        Committing fires the grid's <code>on_edit</code> with a
+        <code>CellEdit&lt;T&gt;</code> — the row, the column <code>key</code>, and
+        the new <code>value</code> as a <code>String</code>. The grid does not parse
+        or apply it. It holds <code>rows</code> behind an <code>Rc</code> and has no
+        way to mutate them, so the host is always the single writer.
+      </p>
+
+      <div class="note">
+        <div>
+          <strong>The value is always a String.</strong>
+          A numeric or date column hands you the raw text the user typed. Parse it
+          yourself and reject what does not parse — the grid deliberately has no
+          opinion about your field types.
+        </div>
+      </div>
+
+      <h2 id="aggregates"><a class="anchor" href="#aggregates" aria-label="Link to this section">#</a>Footer aggregates</h2>
+      <p>
+        <code>.aggregate(Aggregate::…)</code> adds a footer cell for the column,
+        computed over the current <em>filtered</em> set — every matching row, not
+        just the visible page. Narrowing a filter changes the total, turning the page
+        does not.
+      </p>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>Variant</th><th>Footer caption</th><th>Notes</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>Aggregate::Sum</code></td><td>Total</td><td>Needs <code>sort_num</code>.</td></tr>
+            <tr><td><code>Aggregate::Avg</code></td><td>Average</td><td>Needs <code>sort_num</code>.</td></tr>
+            <tr><td><code>Aggregate::Min</code></td><td>Minimum</td><td>Needs <code>sort_num</code>.</td></tr>
+            <tr><td><code>Aggregate::Max</code></td><td>Maximum</td><td>Needs <code>sort_num</code>.</td></tr>
+            <tr><td><code>Aggregate::Count</code></td><td>Count</td><td>Counts rows; works on any column.</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="code">
+        <div class="code-head"><span class="code-dot"></span>A summed column</div>
+<pre><code><span class="k">use</span> grid_dioxus::{<span class="t">Aggregate</span>, <span class="t">GridColumn</span>};
+
+<span class="t">GridColumn</span>::<span class="f">new</span>(<span class="s">"price"</span>, <span class="s">"Price"</span>, |p: &amp;<span class="t">Product</span>| <span class="f">rsx!</span> { <span class="s">"${p.price:.2}"</span> })
+    .<span class="f">sortable_num</span>(|p: &amp;<span class="t">Product</span>| p.price)
+    .<span class="f">aggregate</span>(<span class="t">Aggregate</span>::<span class="t">Sum</span>),</code></pre>
+      </div>
+
+      <p>
+        A numeric aggregate over a column with no numeric projection yields nothing
+        rather than zero — an empty result is honest, a zero would be a lie about
+        text data. When grouping is active the same aggregates also produce per-group
+        subtotals, using identical semantics so the numbers reconcile with the footer.
+      </p>
+
+      <h2 id="export"><a class="anchor" href="#export" aria-label="Link to this section">#</a>Export projections</h2>
+      <p>
+        Export walks <code>csv</code> → <code>sort_key</code> → <code>sort_num</code>.
+        Reach for <code>.csv(…)</code> when the on-screen cell is not what belongs in
+        a spreadsheet — a rendered badge whose sort key is an internal enum, or a
+        currency cell you want unformatted.
+      </p>
+
+      <div class="code">
+        <div class="code-head"><span class="code-dot"></span>Diverging display and export</div>
+<pre><code><span class="t">GridColumn</span>::<span class="f">new</span>(<span class="s">"status"</span>, <span class="s">"Status"</span>, |o: &amp;<span class="t">Order</span>| <span class="f">rsx!</span> {
+        <span class="k">span</span> { class: <span class="s">"badge"</span>, <span class="s">"{o.status.label()}"</span> }
+    })
+    .<span class="f">sortable</span>(|o: &amp;<span class="t">Order</span>| o.status.<span class="f">rank</span>().<span class="f">to_string</span>())  <span class="c">// orders by workflow stage</span>
+    .<span class="f">csv</span>(|o: &amp;<span class="t">Order</span>| o.status.<span class="f">label</span>().<span class="f">to_string</span>()),  <span class="c">// exports the human label</span></code></pre>
+      </div>
+
+      <p>
+        The header row of the exported file uses each column's <code>label</code>.
+        Hidden columns still export — the column chooser hides, it never removes, so
+        a hidden column's sort and filter also keep applying.
+      </p>
+
+      <h2 id="layout"><a class="anchor" href="#layout" aria-label="Link to this section">#</a>Width, alignment and mobile</h2>
+      <p>
+        <code>.width("12rem")</code> is emitted as a min-width, so a long cell can
+        still grow rather than crushing its neighbours. A user's drag-resize
+        overrides it, and <code>persist_key</code> remembers that.
+      </p>
+      <p>
+        <code>.right()</code> and <code>.center()</code> set the column's
+        <code>GridAlign</code>, which the renderer surfaces as
+        <code>data-align="end"</code> or <code>data-align="center"</code> on the
+        cell. The grid does not apply text-align itself — that is your CSS, per the
+        <a href="styling.html">styling contract</a>. Right-align numbers; it is what
+        makes a column of figures scannable.
+      </p>
+      <p>
+        <code>.mobile_hidden()</code> marks a column as inessential on narrow
+        screens. The cell is still emitted, carrying
+        <code>data-hide-mobile</code>, and your stylesheet decides the breakpoint.
+      </p>
+
+      <h2 id="user-layout"><a class="anchor" href="#user-layout" aria-label="Link to this section">#</a>What the user can change</h2>
+      <p>
+        Beyond what you declare, the grid lets the user reorder columns by dragging
+        headers, resize them with the header handles, pin them to the left, and hide
+        them from the column chooser. Pass <code>persist_key</code> to save all four
+        to <code>localStorage</code>:
+      </p>
+
+      <div class="code">
+        <div class="code-head"><span class="code-dot"></span>Persisting layout</div>
+<pre><code><span class="t">DataGrid</span> {
+    rows,
+    columns,
+    row_id: |p: &amp;<span class="t">Product</span>| p.id.<span class="f">to_string</span>(),
+    persist_key: <span class="t">Some</span>(<span class="s">"products-grid"</span>),
+}</code></pre>
+      </div>
+
+      <p>
+        Stored keys are re-mapped onto the live columns on load and anything unknown
+        is dropped, so shipping a release that renames or removes a column cannot
+        break a returning user's grid.
+      </p>
+
+      <h2 id="alt-views"><a class="anchor" href="#alt-views" aria-label="Link to this section">#</a>Card and custom row slots</h2>
+      <p>
+        Two props let you replace the body while keeping everything else. Both are
+        <code>Option&lt;fn(&amp;T) -&gt; Element&gt;</code>, so they need the same
+        <code>as fn(…)</code> coercion described in the
+        <a href="quickstart.html#fn-coercion">quickstart</a>.
+      </p>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>Prop</th><th>Replaces</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>card</code></td><td>The card body in gallery view. When <code>None</code>, a card is auto-built from the columns.</td></tr>
+            <tr><td><code>row</code></td><td>The per-column cells in list view, with one full-width cell you own.</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <p>
+        In both cases the checkbox, kebab, row click, header sorting, search,
+        filtering and pagination keep working — you are replacing the cell layout,
+        not the grid. Keep your <code>columns</code> declared either way, since
+        header sorting and filtering still read them.
+      </p>
+      <p>
+        Set <code>no_card_toggle: true</code> for data where a gallery view is
+        meaningless — a permission matrix, a ledger — so the toggle is not offered.
+        <code>grid_default: true</code> starts in card view instead.
+      </p>
+
+      <div class="pager">
+        <a href="quickstart.html"><span>Previous</span>← Quickstart</a>
+        <a class="next" href="sorting-filtering.html"><span>Next</span>Sorting &amp; filtering →</a>
+      </div>
+
+      <p class="ftr">
+        Dual-licensed under MIT or Apache-2.0.
+        <a href="https://github.com/iamAhsanMalik/dioxus-grid">Source on GitHub</a>.
+      </p>
+    </div>
+  </main>
+
+  <nav class="toc" aria-label="On this page">
+    <p class="toc-title">On this page</p>
+    <ul>
+      <li><a href="#shape">The shape of a column</a></li>
+      <li><a href="#builders">Builders</a></li>
+      <li><a href="#rendering">Rendering cells</a></li>
+      <li><a href="#projections">Projection precedence</a></li>
+      <li><a href="#editing">Inline editing</a></li>
+      <li><a href="#aggregates">Footer aggregates</a></li>
+      <li><a href="#export">Export projections</a></li>
+      <li><a href="#layout">Width and alignment</a></li>
+      <li><a href="#user-layout">What the user can change</a></li>
+      <li><a href="#alt-views">Card and row slots</a></li>
+    </ul>
+  </nav>
+
+</div>
+</body>
+</html>
