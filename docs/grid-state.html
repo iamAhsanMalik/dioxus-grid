@@ -12,35 +12,45 @@
 
 <input type="checkbox" id="navToggle" class="nav-toggle" hidden>
 
-<header class="hdr">
+<div class="mobile-bar">
   <label for="navToggle" class="nav-btn" aria-label="Toggle navigation">
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 6h18M3 12h18M3 18h18"/></svg>
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 6h18M3 12h18M3 18h18"/></svg>
   </label>
-
-  <a class="hdr-brand" href="index.html">
+  <a class="brand" href="index.html">
     <svg viewBox="0 0 32 32" aria-hidden="true">
-      <rect width="32" height="32" rx="7" fill="var(--accent)"/>
-      <g fill="var(--accent-ink)">
+      <rect width="32" height="32" rx="7" fill="#10b981"/>
+      <g fill="#09090b">
         <rect x="6" y="8" width="20" height="3.5" rx="1"/>
         <rect x="6" y="14.25" width="20" height="3.5" rx="1" opacity=".7"/>
         <rect x="6" y="20.5" width="20" height="3.5" rx="1" opacity=".45"/>
       </g>
     </svg>
     dioxus-grid
-    <span class="hdr-ver">v0.1.0</span>
+  </a>
+</div>
+
+<aside class="sidebar">
+  <a class="brand" href="index.html">
+    <svg viewBox="0 0 32 32" aria-hidden="true">
+      <rect width="32" height="32" rx="7" fill="#10b981"/>
+      <g fill="#09090b">
+        <rect x="6" y="8" width="20" height="3.5" rx="1"/>
+        <rect x="6" y="14.25" width="20" height="3.5" rx="1" opacity=".7"/>
+        <rect x="6" y="20.5" width="20" height="3.5" rx="1" opacity=".45"/>
+      </g>
+    </svg>
+    dioxus-grid
+    <span class="ver">v0.1.0</span>
   </a>
 
-  <nav class="hdr-nav">
+  <div class="top-nav">
     <a href="quickstart.html">Quickstart</a>
     <a href="demo.html">Demo</a>
     <a href="https://github.com/iamAhsanMalik/dioxus-grid">GitHub</a>
-  </nav>
-</header>
+  </div>
 
-<div class="shell">
-
-  <aside class="nav">
-    <div class="nav-group">
+  <nav class="nav">
+<div class="nav-group">
       <p class="nav-title">Guides</p>
       <ul>
         <li><a href="index.html">Introduction</a></li>
@@ -62,8 +72,12 @@
         <li><a href="grid-dioxus.html">grid-dioxus</a></li>
       </ul>
     </div>
-  </aside>
+  </nav>
+</aside>
 
+<div class="content">
+
+  <div class="article">
   <main class="main">
     <div class="prose">
       <p class="eyebrow">Crates</p>
@@ -99,7 +113,7 @@
       <p>List (row) versus card (gallery) presentation.</p>
 
       <div class="code">
-        <div class="code-head"><span class="code-dot"></span>grid_state::ViewMode</div>
+        <div class="code-head">grid_state::ViewMode</div>
 <pre><code><span class="k">pub enum</span> <span class="t">ViewMode</span> { <span class="t">List</span>, <span class="t">Card</span> }
 
 <span class="k">impl</span> <span class="t">ViewMode</span> {
@@ -123,7 +137,7 @@
       </p>
 
       <div class="code">
-        <div class="code-head"><span class="code-dot"></span>grid_state::GridState</div>
+        <div class="code-head">grid_state::GridState</div>
 <pre><code><span class="k">pub struct</span> <span class="t">GridState</span> { <span class="c">/* private */</span> }
 
 <span class="k">impl</span> <span class="t">GridState</span> {
@@ -246,7 +260,7 @@
       </p>
 
       <div class="code">
-        <div class="code-head"><span class="code-dot"></span>tri-state sort</div>
+        <div class="code-head">tri-state sort</div>
 <pre><code><span class="k">let mut</span> s = <span class="t">GridState</span>::<span class="f">new</span>(<span class="n">10</span>, <span class="k">false</span>);
 
 s.<span class="f">toggle_sort</span>(<span class="s">"name"</span>);   <span class="c">// Some(Sort::asc("name"))</span>
@@ -292,7 +306,7 @@ s.<span class="f">toggle_sort</span>(<span class="s">"score"</span>);  <span cla
       </p>
 
       <div class="code">
-        <div class="code-head"><span class="code-dot"></span>page selection</div>
+        <div class="code-head">page selection</div>
 <pre><code><span class="k">let</span> page = <span class="f">vec!</span>[<span class="s">"a"</span>.<span class="f">to_string</span>(), <span class="s">"b"</span>.<span class="f">to_string</span>()];
 
 s.<span class="f">toggle_row</span>(<span class="s">"b"</span>);          <span class="c">// partial: 1 of 2</span>
@@ -315,7 +329,7 @@ s.<span class="f">toggle_page</span>(&amp;page);      <span class="c">// full â†
       </p>
 
       <div class="code">
-        <div class="code-head"><span class="code-dot"></span>a renderer's frame</div>
+        <div class="code-head">a renderer's frame</div>
 <pre><code><span class="k">use</span> grid_state::{<span class="t">GridState</span>, <span class="t">ViewMode</span>};
 
 <span class="c">// held across frames</span>
@@ -362,6 +376,7 @@ state.<span class="f">toggle_sort</span>(<span class="s">"name"</span>);
       <li><a href="#usage">Driving it yourself</a></li>
     </ul>
   </nav>
+  </div>
 
 </div>
 </body>

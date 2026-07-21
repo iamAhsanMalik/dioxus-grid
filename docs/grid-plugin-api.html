@@ -12,35 +12,45 @@
 
 <input type="checkbox" id="navToggle" class="nav-toggle" hidden>
 
-<header class="hdr">
+<div class="mobile-bar">
   <label for="navToggle" class="nav-btn" aria-label="Toggle navigation">
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 6h18M3 12h18M3 18h18"/></svg>
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 6h18M3 12h18M3 18h18"/></svg>
   </label>
-
-  <a class="hdr-brand" href="index.html">
+  <a class="brand" href="index.html">
     <svg viewBox="0 0 32 32" aria-hidden="true">
-      <rect width="32" height="32" rx="7" fill="var(--accent)"/>
-      <g fill="var(--accent-ink)">
+      <rect width="32" height="32" rx="7" fill="#10b981"/>
+      <g fill="#09090b">
         <rect x="6" y="8" width="20" height="3.5" rx="1"/>
         <rect x="6" y="14.25" width="20" height="3.5" rx="1" opacity=".7"/>
         <rect x="6" y="20.5" width="20" height="3.5" rx="1" opacity=".45"/>
       </g>
     </svg>
     dioxus-grid
-    <span class="hdr-ver">v0.1.0</span>
+  </a>
+</div>
+
+<aside class="sidebar">
+  <a class="brand" href="index.html">
+    <svg viewBox="0 0 32 32" aria-hidden="true">
+      <rect width="32" height="32" rx="7" fill="#10b981"/>
+      <g fill="#09090b">
+        <rect x="6" y="8" width="20" height="3.5" rx="1"/>
+        <rect x="6" y="14.25" width="20" height="3.5" rx="1" opacity=".7"/>
+        <rect x="6" y="20.5" width="20" height="3.5" rx="1" opacity=".45"/>
+      </g>
+    </svg>
+    dioxus-grid
+    <span class="ver">v0.1.0</span>
   </a>
 
-  <nav class="hdr-nav">
+  <div class="top-nav">
     <a href="quickstart.html">Quickstart</a>
     <a href="demo.html">Demo</a>
     <a href="https://github.com/iamAhsanMalik/dioxus-grid">GitHub</a>
-  </nav>
-</header>
+  </div>
 
-<div class="shell">
-
-  <aside class="nav">
-    <div class="nav-group">
+  <nav class="nav">
+<div class="nav-group">
       <p class="nav-title">Guides</p>
       <ul>
         <li><a href="index.html">Introduction</a></li>
@@ -62,8 +72,12 @@
         <li><a href="grid-dioxus.html">grid-dioxus</a></li>
       </ul>
     </div>
-  </aside>
+  </nav>
+</aside>
 
+<div class="content">
+
+  <div class="article">
   <main class="main">
     <div class="prose">
       <p class="eyebrow">Crates</p>
@@ -93,7 +107,7 @@
       </p>
 
       <div class="code">
-        <div class="code-head"><span class="code-dot"></span>grid_plugin_api::QueryStage</div>
+        <div class="code-head">grid_plugin_api::QueryStage</div>
 <pre><code><span class="k">pub trait</span> <span class="t">QueryStage</span>&lt;<span class="t">T</span>&gt; {
     <span class="k">fn</span> <span class="f">apply</span>(&amp;<span class="k">self</span>, rows: <span class="t">Vec</span>&lt;<span class="t">T</span>&gt;, columns: &amp;[<span class="t">ColumnDef</span>&lt;<span class="t">T</span>&gt;]) -&gt; <span class="t">Vec</span>&lt;<span class="t">T</span>&gt;;
 }</code></pre>
@@ -115,7 +129,7 @@
       </p>
 
       <div class="code">
-        <div class="code-head"><span class="code-dot"></span>grid_plugin_api</div>
+        <div class="code-head">grid_plugin_api</div>
 <pre><code><span class="k">pub type</span> <span class="t">Projection</span>&lt;<span class="t">T</span>&gt; = <span class="t">Box</span>&lt;<span class="k">dyn</span> <span class="t">Fn</span>(&amp;<span class="t">T</span>) -&gt; <span class="t">CellValue</span>&gt;;
 
 <span class="c">// An owned/borrowed column key, mirroring grid_core::Sort's key type.</span>
@@ -151,7 +165,7 @@
       <h2 id="filters"><a class="anchor" href="#filters" aria-label="Link to this section">#</a>Column filters</h2>
 
       <div class="code">
-        <div class="code-head"><span class="code-dot"></span>grid_plugin_api::FilterOp</div>
+        <div class="code-head">grid_plugin_api::FilterOp</div>
 <pre><code><span class="k">pub enum</span> <span class="t">FilterOp</span> {
     <span class="t">Equals</span>, <span class="t">NotEquals</span>,
     <span class="t">Contains</span>,        <span class="c">// text, case-insensitive; non-text never matches</span>
@@ -169,7 +183,7 @@
       </p>
 
       <div class="code">
-        <div class="code-head"><span class="code-dot"></span>grid_plugin_api::Filter</div>
+        <div class="code-head">grid_plugin_api::Filter</div>
 <pre><code><span class="k">pub struct</span> <span class="t">Filter</span> {
     <span class="k">pub</span> key: <span class="t">Cow</span>,
     <span class="k">pub</span> op: <span class="t">FilterOp</span>,
@@ -206,7 +220,7 @@
       <h3>FilterModel and Combine</h3>
 
       <div class="code">
-        <div class="code-head"><span class="code-dot"></span>grid_plugin_api</div>
+        <div class="code-head">grid_plugin_api</div>
 <pre><code><span class="k">pub enum</span> <span class="t">Combine</span> { <span class="t">All</span>, <span class="t">Any</span> }   <span class="c">// All is the default</span>
 
 <span class="k">pub struct</span> <span class="t">FilterModel</span> {
@@ -242,7 +256,7 @@
       </p>
 
       <div class="code">
-        <div class="code-head"><span class="code-dot"></span>grid_plugin_api</div>
+        <div class="code-head">grid_plugin_api</div>
 <pre><code><span class="k">pub struct</span> <span class="t">MultiSort</span> { <span class="k">pub</span> sorts: <span class="t">Vec</span>&lt;<span class="t">Sort</span>&gt; }
 
 <span class="k">impl</span> <span class="t">MultiSort</span> {
@@ -258,7 +272,7 @@
       </div>
 
       <div class="code">
-        <div class="code-head"><span class="code-dot"></span>department ascending, then age descending within each</div>
+        <div class="code-head">department ascending, then age descending within each</div>
 <pre><code><span class="k">let</span> ms = <span class="t">MultiSort</span>::<span class="f">new</span>()
     .<span class="f">then</span>(<span class="t">Sort</span>::<span class="f">asc</span>(<span class="s">"dept"</span>))
     .<span class="f">then</span>(<span class="t">Sort</span>::<span class="f">desc</span>(<span class="s">"age"</span>));
@@ -274,7 +288,7 @@
       <h2 id="aggregate"><a class="anchor" href="#aggregate" aria-label="Link to this section">#</a>Aggregates</h2>
 
       <div class="code">
-        <div class="code-head"><span class="code-dot"></span>grid_plugin_api</div>
+        <div class="code-head">grid_plugin_api</div>
 <pre><code><span class="k">pub enum</span> <span class="t">Aggregate</span> { <span class="t">Sum</span>, <span class="t">Avg</span>, <span class="t">Min</span>, <span class="t">Max</span>, <span class="t">Count</span> }
 
 <span class="k">pub enum</span> <span class="t">AggValue</span> {
@@ -312,7 +326,7 @@
       </p>
 
       <div class="code">
-        <div class="code-head"><span class="code-dot"></span>grid_plugin_api::Pipeline</div>
+        <div class="code-head">grid_plugin_api::Pipeline</div>
 <pre><code><span class="k">impl</span>&lt;<span class="s">'c</span>, <span class="t">T</span>: <span class="t">Clone</span> + <span class="s">'static</span>&gt; <span class="t">Pipeline</span>&lt;<span class="s">'c</span>, <span class="t">T</span>&gt; {
     <span class="k">pub fn</span> <span class="f">new</span>(rows: <span class="t">Vec</span>&lt;<span class="t">T</span>&gt;, columns: &amp;<span class="s">'c</span> [<span class="t">ColumnDef</span>&lt;<span class="t">T</span>&gt;]) -&gt; <span class="t">Self</span>;
     <span class="k">pub fn</span> <span class="f">search</span>(<span class="k">self</span>, f: <span class="k">fn</span>(&amp;<span class="t">T</span>) -&gt; <span class="t">String</span>) -&gt; <span class="t">Self</span>;
@@ -343,7 +357,7 @@
       </p>
 
       <div class="code">
-        <div class="code-head"><span class="code-dot"></span>composing a query</div>
+        <div class="code-head">composing a query</div>
 <pre><code><span class="k">use</span> grid_core::{<span class="t">CellValue</span>, <span class="t">ColumnDef</span>, <span class="t">QueryModel</span>};
 <span class="k">use</span> grid_plugin_api::{<span class="t">Filter</span>, <span class="t">FilterModel</span>, <span class="t">FilterStage</span>, <span class="t">Pipeline</span>};
 
@@ -370,7 +384,7 @@
       </p>
 
       <div class="code">
-        <div class="code-head"><span class="code-dot"></span>grid_plugin_api</div>
+        <div class="code-head">grid_plugin_api</div>
 <pre><code><span class="k">pub struct</span> <span class="t">GridQuery</span> {
     <span class="k">pub</span> search: <span class="t">String</span>,
     <span class="k">pub</span> filters: <span class="t">FilterModel</span>,
@@ -408,7 +422,7 @@
       <h3>LocalProvider</h3>
 
       <div class="code">
-        <div class="code-head"><span class="code-dot"></span>grid_plugin_api::LocalProvider</div>
+        <div class="code-head">grid_plugin_api::LocalProvider</div>
 <pre><code><span class="k">impl</span>&lt;<span class="s">'c</span>, <span class="t">T</span>: <span class="t">Clone</span> + <span class="s">'static</span>&gt; <span class="t">LocalProvider</span>&lt;<span class="s">'c</span>, <span class="t">T</span>&gt; {
     <span class="k">pub fn</span> <span class="f">new</span>(rows: <span class="t">Rc</span>&lt;[<span class="t">T</span>]&gt;, columns: &amp;<span class="s">'c</span> [<span class="t">ColumnDef</span>&lt;<span class="t">T</span>&gt;]) -&gt; <span class="t">Self</span>;
     <span class="k">pub fn</span> <span class="f">search</span>(<span class="k">self</span>, f: <span class="k">fn</span>(&amp;<span class="t">T</span>) -&gt; <span class="t">String</span>) -&gt; <span class="t">Self</span>;
@@ -494,6 +508,7 @@
       <li><a href="#serde">The serde feature</a></li>
     </ul>
   </nav>
+  </div>
 
 </div>
 </body>

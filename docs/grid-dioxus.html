@@ -12,35 +12,45 @@
 
 <input type="checkbox" id="navToggle" class="nav-toggle" hidden>
 
-<header class="hdr">
+<div class="mobile-bar">
   <label for="navToggle" class="nav-btn" aria-label="Toggle navigation">
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 6h18M3 12h18M3 18h18"/></svg>
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 6h18M3 12h18M3 18h18"/></svg>
   </label>
-
-  <a class="hdr-brand" href="index.html">
+  <a class="brand" href="index.html">
     <svg viewBox="0 0 32 32" aria-hidden="true">
-      <rect width="32" height="32" rx="7" fill="var(--accent)"/>
-      <g fill="var(--accent-ink)">
+      <rect width="32" height="32" rx="7" fill="#10b981"/>
+      <g fill="#09090b">
         <rect x="6" y="8" width="20" height="3.5" rx="1"/>
         <rect x="6" y="14.25" width="20" height="3.5" rx="1" opacity=".7"/>
         <rect x="6" y="20.5" width="20" height="3.5" rx="1" opacity=".45"/>
       </g>
     </svg>
     dioxus-grid
-    <span class="hdr-ver">v0.1.0</span>
+  </a>
+</div>
+
+<aside class="sidebar">
+  <a class="brand" href="index.html">
+    <svg viewBox="0 0 32 32" aria-hidden="true">
+      <rect width="32" height="32" rx="7" fill="#10b981"/>
+      <g fill="#09090b">
+        <rect x="6" y="8" width="20" height="3.5" rx="1"/>
+        <rect x="6" y="14.25" width="20" height="3.5" rx="1" opacity=".7"/>
+        <rect x="6" y="20.5" width="20" height="3.5" rx="1" opacity=".45"/>
+      </g>
+    </svg>
+    dioxus-grid
+    <span class="ver">v0.1.0</span>
   </a>
 
-  <nav class="hdr-nav">
+  <div class="top-nav">
     <a href="quickstart.html">Quickstart</a>
     <a href="demo.html">Demo</a>
     <a href="https://github.com/iamAhsanMalik/dioxus-grid">GitHub</a>
-  </nav>
-</header>
+  </div>
 
-<div class="shell">
-
-  <aside class="nav">
-    <div class="nav-group">
+  <nav class="nav">
+<div class="nav-group">
       <p class="nav-title">Guides</p>
       <ul>
         <li><a href="index.html">Introduction</a></li>
@@ -62,8 +72,12 @@
         <li><a href="grid-dioxus.html" aria-current="page">grid-dioxus</a></li>
       </ul>
     </div>
-  </aside>
+  </nav>
+</aside>
 
+<div class="content">
+
+  <div class="article">
   <main class="main">
     <div class="prose">
       <p class="eyebrow">Crates</p>
@@ -110,7 +124,7 @@
       </p>
 
       <div class="code">
-        <div class="code-head"><span class="code-dot"></span>a working grid</div>
+        <div class="code-head">a working grid</div>
 <pre><code><span class="k">use</span> std::rc::<span class="t">Rc</span>;
 
 <span class="k">use</span> dioxus::prelude::*;
@@ -157,7 +171,7 @@
       </p>
 
       <div class="code">
-        <div class="code-head"><span class="code-dot"></span>building the rows prop</div>
+        <div class="code-head">building the rows prop</div>
 <pre><code><span class="k">let</span> rows: <span class="t">Rc</span>&lt;[<span class="t">Row</span>]&gt; = my_vec.<span class="f">into</span>();       <span class="c">// or Rc::from(my_vec)</span>
 <span class="k">let</span> rows: <span class="t">Rc</span>&lt;[<span class="t">Row</span>]&gt; = <span class="f">vec!</span>[a, b, c].<span class="f">into</span>();</code></pre>
       </div>
@@ -179,7 +193,7 @@
       </p>
 
       <div class="code">
-        <div class="code-head"><span class="code-dot"></span>the Option coercion</div>
+        <div class="code-head">the Option coercion</div>
 <pre><code><span class="c">// does not compile — closure inside Some, no target type</span>
 search_text: <span class="t">Some</span>(|r: &amp;<span class="t">Row</span>| r.name.<span class="f">clone</span>()),
 
@@ -319,7 +333,7 @@ actions: <span class="t">Some</span>(row_actions <span class="k">as</span> <span
       </p>
 
       <div class="code">
-        <div class="code-head"><span class="code-dot"></span>grid_dioxus::GridColumn</div>
+        <div class="code-head">grid_dioxus::GridColumn</div>
 <pre><code><span class="k">impl</span>&lt;<span class="t">T</span>: <span class="t">Clone</span> + <span class="t">PartialEq</span> + <span class="s">'static</span>&gt; <span class="t">GridColumn</span>&lt;<span class="t">T</span>&gt; {
     <span class="k">pub fn</span> <span class="f">new</span>(key: &amp;<span class="s">'static</span> <span class="t">str</span>, label: &amp;<span class="s">'static</span> <span class="t">str</span>,
                render: <span class="k">fn</span>(&amp;<span class="t">T</span>) -&gt; <span class="t">Element</span>) -&gt; <span class="t">Self</span>;
@@ -401,7 +415,7 @@ actions: <span class="t">Some</span>(row_actions <span class="k">as</span> <span
       <h2 id="gridaction"><a class="anchor" href="#gridaction" aria-label="Link to this section">#</a>GridAction</h2>
 
       <div class="code">
-        <div class="code-head"><span class="code-dot"></span>grid_dioxus::GridAction</div>
+        <div class="code-head">grid_dioxus::GridAction</div>
 <pre><code><span class="k">impl</span> <span class="t">GridAction</span> {
     <span class="k">pub fn</span> <span class="f">new</span>(key: &amp;<span class="s">'static</span> <span class="t">str</span>, label: <span class="k">impl</span> <span class="t">Into</span>&lt;<span class="t">String</span>&gt;) -&gt; <span class="t">Self</span>;
     <span class="k">pub fn</span> <span class="f">danger</span>(key: &amp;<span class="s">'static</span> <span class="t">str</span>, label: <span class="k">impl</span> <span class="t">Into</span>&lt;<span class="t">String</span>&gt;) -&gt; <span class="t">Self</span>;
@@ -427,7 +441,7 @@ actions: <span class="t">Some</span>(row_actions <span class="k">as</span> <span
       <h2 id="celledit"><a class="anchor" href="#celledit" aria-label="Link to this section">#</a>CellEdit</h2>
 
       <div class="code">
-        <div class="code-head"><span class="code-dot"></span>grid_dioxus::CellEdit</div>
+        <div class="code-head">grid_dioxus::CellEdit</div>
 <pre><code><span class="k">pub struct</span> <span class="t">CellEdit</span>&lt;<span class="t">T</span>: <span class="t">Clone</span> + <span class="t">PartialEq</span> + <span class="s">'static</span>&gt; {
     <span class="k">pub</span> row: <span class="t">T</span>,
     <span class="k">pub</span> key: &amp;<span class="s">'static</span> <span class="t">str</span>,
@@ -483,7 +497,7 @@ actions: <span class="t">Some</span>(row_actions <span class="k">as</span> <span
       </p>
 
       <div class="code">
-        <div class="code-head"><span class="code-dot"></span>grid_dioxus::Date</div>
+        <div class="code-head">grid_dioxus::Date</div>
 <pre><code><span class="k">pub struct</span> <span class="t">Date</span> { <span class="k">pub</span> year: <span class="t">i32</span>, <span class="k">pub</span> month: <span class="t">u32</span>, <span class="k">pub</span> day: <span class="t">u32</span> }
 
 <span class="k">impl</span> <span class="t">Date</span> {
@@ -504,7 +518,7 @@ actions: <span class="t">Some</span>(row_actions <span class="k">as</span> <span
       <h2 id="export"><a class="anchor" href="#export" aria-label="Link to this section">#</a>ExportData and ExportFormat</h2>
 
       <div class="code">
-        <div class="code-head"><span class="code-dot"></span>grid_dioxus::grid_export</div>
+        <div class="code-head">grid_dioxus::grid_export</div>
 <pre><code><span class="k">pub struct</span> <span class="t">ExportData</span> {
     <span class="k">pub</span> headers: <span class="t">Vec</span>&lt;<span class="t">String</span>&gt;,
     <span class="k">pub</span> rows: <span class="t">Vec</span>&lt;<span class="t">Vec</span>&lt;<span class="t">String</span>&gt;&gt;,
@@ -573,6 +587,7 @@ actions: <span class="t">Some</span>(row_actions <span class="k">as</span> <span
       <li><a href="#features">Features</a></li>
     </ul>
   </nav>
+  </div>
 
 </div>
 </body>

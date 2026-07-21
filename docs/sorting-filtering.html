@@ -12,35 +12,45 @@
 
 <input type="checkbox" id="navToggle" class="nav-toggle" hidden>
 
-<header class="hdr">
+<div class="mobile-bar">
   <label for="navToggle" class="nav-btn" aria-label="Toggle navigation">
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 6h18M3 12h18M3 18h18"/></svg>
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 6h18M3 12h18M3 18h18"/></svg>
   </label>
-
-  <a class="hdr-brand" href="index.html">
+  <a class="brand" href="index.html">
     <svg viewBox="0 0 32 32" aria-hidden="true">
-      <rect width="32" height="32" rx="7" fill="var(--accent)"/>
-      <g fill="var(--accent-ink)">
+      <rect width="32" height="32" rx="7" fill="#10b981"/>
+      <g fill="#09090b">
         <rect x="6" y="8" width="20" height="3.5" rx="1"/>
         <rect x="6" y="14.25" width="20" height="3.5" rx="1" opacity=".7"/>
         <rect x="6" y="20.5" width="20" height="3.5" rx="1" opacity=".45"/>
       </g>
     </svg>
     dioxus-grid
-    <span class="hdr-ver">v0.1.0</span>
+  </a>
+</div>
+
+<aside class="sidebar">
+  <a class="brand" href="index.html">
+    <svg viewBox="0 0 32 32" aria-hidden="true">
+      <rect width="32" height="32" rx="7" fill="#10b981"/>
+      <g fill="#09090b">
+        <rect x="6" y="8" width="20" height="3.5" rx="1"/>
+        <rect x="6" y="14.25" width="20" height="3.5" rx="1" opacity=".7"/>
+        <rect x="6" y="20.5" width="20" height="3.5" rx="1" opacity=".45"/>
+      </g>
+    </svg>
+    dioxus-grid
+    <span class="ver">v0.1.0</span>
   </a>
 
-  <nav class="hdr-nav">
+  <div class="top-nav">
     <a href="quickstart.html">Quickstart</a>
     <a href="demo.html">Demo</a>
     <a href="https://github.com/iamAhsanMalik/dioxus-grid">GitHub</a>
-  </nav>
-</header>
+  </div>
 
-<div class="shell">
-
-  <aside class="nav">
-    <div class="nav-group">
+  <nav class="nav">
+<div class="nav-group">
       <p class="nav-title">Guides</p>
       <ul>
         <li><a href="index.html">Introduction</a></li>
@@ -62,8 +72,12 @@
         <li><a href="grid-dioxus.html">grid-dioxus</a></li>
       </ul>
     </div>
-  </aside>
+  </nav>
+</aside>
 
+<div class="content">
+
+  <div class="article">
   <main class="main">
     <div class="prose">
       <p class="eyebrow">Guides</p>
@@ -81,7 +95,7 @@
       </p>
 
       <div class="code">
-        <div class="code-head"><span class="code-dot"></span>Order of operations</div>
+        <div class="code-head">Order of operations</div>
 <pre><code>global search  →  column filters  →  sort  →  paginate</code></pre>
       </div>
 
@@ -106,7 +120,7 @@
       </p>
 
       <div class="code">
-        <div class="code-head"><span class="code-dot"></span>The search haystack</div>
+        <div class="code-head">The search haystack</div>
 <pre><code><span class="t">DataGrid</span> {
     rows,
     columns,
@@ -134,7 +148,7 @@
       </p>
 
       <div class="code">
-        <div class="code-head"><span class="code-dot"></span>Tri-state cycle</div>
+        <div class="code-head">Tri-state cycle</div>
 <pre><code>unsorted  →  ascending  →  descending  →  unsorted</code></pre>
       </div>
 
@@ -151,7 +165,7 @@
       <p>The state machine lives in <a href="grid-state.html"><code>grid-state</code></a> and is directly testable:</p>
 
       <div class="code">
-        <div class="code-head"><span class="code-dot"></span>Driving GridState by hand</div>
+        <div class="code-head">Driving GridState by hand</div>
 <pre><code><span class="k">use</span> grid_state::<span class="t">GridState</span>;
 
 <span class="k">let</span> <span class="k">mut</span> s = <span class="t">GridState</span>::<span class="f">new</span>(<span class="n">10</span>, <span class="k">false</span>);
@@ -186,7 +200,7 @@ s.<span class="f">toggle_sort</span>(<span class="s">"name"</span>);            
       </p>
 
       <div class="code">
-        <div class="code-head"><span class="code-dot"></span>Composing sorts directly</div>
+        <div class="code-head">Composing sorts directly</div>
 <pre><code><span class="k">use</span> grid_plugin_api::{<span class="t">MultiSort</span>, <span class="t">Sort</span>};
 
 <span class="k">let</span> sort = <span class="t">MultiSort</span>::<span class="f">new</span>()
@@ -246,7 +260,7 @@ s.<span class="f">toggle_sort</span>(<span class="s">"name"</span>);            
       </div>
 
       <div class="code">
-        <div class="code-head"><span class="code-dot"></span>Choosing filter controls</div>
+        <div class="code-head">Choosing filter controls</div>
 <pre><code><span class="k">use</span> grid_dioxus::{<span class="t">FilterKind</span>, <span class="t">GridColumn</span>};
 
 <span class="k">let</span> columns = <span class="f">vec!</span>[
@@ -297,7 +311,7 @@ s.<span class="f">toggle_sort</span>(<span class="s">"name"</span>);            
       </p>
 
       <div class="code">
-        <div class="code-head"><span class="code-dot"></span>Supplying the clock</div>
+        <div class="code-head">Supplying the clock</div>
 <pre><code><span class="t">DataGrid</span> {
     rows,
     columns,
@@ -355,7 +369,7 @@ s.<span class="f">toggle_sort</span>(<span class="s">"name"</span>);            
       </p>
 
       <div class="code">
-        <div class="code-head"><span class="code-dot"></span>A filter model by hand</div>
+        <div class="code-head">A filter model by hand</div>
 <pre><code><span class="k">use</span> grid_plugin_api::{<span class="t">CellValue</span>, <span class="t">Filter</span>, <span class="t">FilterModel</span>, <span class="t">FilterOp</span>};
 
 <span class="c">// ANDed by default.</span>
@@ -385,7 +399,7 @@ s.<span class="f">toggle_sort</span>(<span class="s">"name"</span>);            
       </p>
 
       <div class="code">
-        <div class="code-head"><span class="code-dot"></span>Remote mode</div>
+        <div class="code-head">Remote mode</div>
 <pre><code><span class="k">use</span> grid_dioxus::{<span class="t">GridPage</span>, <span class="t">GridQuery</span>};
 
 <span class="k">let</span> <span class="k">mut</span> page = <span class="f">use_signal</span>(|| <span class="t">None</span>::&lt;<span class="t">GridPage</span>&lt;<span class="t">Product</span>&gt;&gt;);
@@ -450,6 +464,7 @@ s.<span class="f">toggle_sort</span>(<span class="s">"name"</span>);            
       <li><a href="#remote">Server-side querying</a></li>
     </ul>
   </nav>
+  </div>
 
 </div>
 </body>
