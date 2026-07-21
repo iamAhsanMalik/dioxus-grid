@@ -12,35 +12,45 @@
 
 <input type="checkbox" id="navToggle" class="nav-toggle" hidden>
 
-<header class="hdr">
+<div class="mobile-bar">
   <label for="navToggle" class="nav-btn" aria-label="Toggle navigation">
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 6h18M3 12h18M3 18h18"/></svg>
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 6h18M3 12h18M3 18h18"/></svg>
   </label>
-
-  <a class="hdr-brand" href="index.html">
+  <a class="brand" href="index.html">
     <svg viewBox="0 0 32 32" aria-hidden="true">
-      <rect width="32" height="32" rx="7" fill="var(--accent)"/>
-      <g fill="var(--accent-ink)">
+      <rect width="32" height="32" rx="7" fill="#10b981"/>
+      <g fill="#09090b">
         <rect x="6" y="8" width="20" height="3.5" rx="1"/>
         <rect x="6" y="14.25" width="20" height="3.5" rx="1" opacity=".7"/>
         <rect x="6" y="20.5" width="20" height="3.5" rx="1" opacity=".45"/>
       </g>
     </svg>
     dioxus-grid
-    <span class="hdr-ver">v0.1.0</span>
+  </a>
+</div>
+
+<aside class="sidebar">
+  <a class="brand" href="index.html">
+    <svg viewBox="0 0 32 32" aria-hidden="true">
+      <rect width="32" height="32" rx="7" fill="#10b981"/>
+      <g fill="#09090b">
+        <rect x="6" y="8" width="20" height="3.5" rx="1"/>
+        <rect x="6" y="14.25" width="20" height="3.5" rx="1" opacity=".7"/>
+        <rect x="6" y="20.5" width="20" height="3.5" rx="1" opacity=".45"/>
+      </g>
+    </svg>
+    dioxus-grid
+    <span class="ver">v0.1.0</span>
   </a>
 
-  <nav class="hdr-nav">
+  <div class="top-nav">
     <a href="quickstart.html">Quickstart</a>
     <a href="demo.html">Demo</a>
     <a href="https://github.com/iamAhsanMalik/dioxus-grid">GitHub</a>
-  </nav>
-</header>
+  </div>
 
-<div class="shell">
-
-  <aside class="nav">
-    <div class="nav-group">
+  <nav class="nav">
+<div class="nav-group">
       <p class="nav-title">Guides</p>
       <ul>
         <li><a href="index.html" aria-current="page">Introduction</a></li>
@@ -62,8 +72,12 @@
         <li><a href="grid-dioxus.html">grid-dioxus</a></li>
       </ul>
     </div>
-  </aside>
+  </nav>
+</aside>
 
+<div class="content">
+
+  <div class="article">
   <main class="main">
     <div class="prose hero">
       <p class="eyebrow">Documentation</p>
@@ -87,7 +101,7 @@
       </p>
 
       <div class="code">
-        <div class="code-head"><span class="code-dot"></span>Cargo.toml</div>
+        <div class="code-head">Cargo.toml</div>
 <pre><code>[<span class="t">dependencies</span>]
 <span class="f">grid-dioxus</span> = { <span class="t">version</span> = <span class="s">"0.1"</span>, <span class="t">features</span> = [<span class="s">"web"</span>] }</code></pre>
       </div>
@@ -184,6 +198,7 @@
       <li><a href="#next">Where to go next</a></li>
     </ul>
   </nav>
+  </div>
 
 </div>
 </body>
