@@ -84,8 +84,9 @@
       <h1>Live demo</h1>
       <p class="lead">
         The example app from the repository, compiled to wasm and running below. It is
-        a single component of about sixty lines over a forty-two-row product list —
-        everything you see comes from what the four columns declare.
+        a single component over a 124-row order list — the avatars, status chips and
+        star ratings all come from what the eight columns declare, and none of it is
+        styled by the crate.
       </p>
 
       <div class="frame">
@@ -96,21 +97,23 @@
       <ul>
         <li>Click a header to sort, then click it twice more — ascending, descending, back to the dataset's own order.</li>
         <li>Shift-click a second header to add it as a tie-breaker after the primary sort.</li>
-        <li>Open the funnel on <strong>Category</strong>: it is a <code>Set</code> filter, so the choices are the column's distinct values.</li>
-        <li>Filter <strong>Price</strong> or <strong>Stock</strong> numerically, and watch the <strong>Price</strong> footer total follow the filtered set rather than the visible page.</li>
-        <li>Double-click a name to edit it in place. The commit fires an event; the app applies it to its own signal.</li>
+        <li>Open the funnel on <strong>Status</strong> or <strong>Channel</strong>: both are <code>Set</code> filters, so the choices are the column's distinct values.</li>
+        <li>Filter <strong>Total</strong> by range, or <strong>Rating</strong> with the star picker, and watch the <strong>Total</strong> and <strong>Items</strong> footer sums follow the filtered set rather than the visible page.</li>
+        <li>Double-click a customer name to edit it in place. The commit fires an event; the app applies it to its own signal.</li>
         <li>Select a few rows, then select a whole page, then page forward — the selection accumulates and the bulk bar appears.</li>
         <li>Drag a header to reorder, drag its edge to resize, and hide a column from the chooser.</li>
         <li>Switch to card view. Search, filters, sort, page and selection all survive the switch.</li>
+        <li>Narrow the window: <strong>Placed</strong> and <strong>Rating</strong> drop out, because those columns declare themselves hideable on small screens.</li>
       </ul>
 
       <div class="note">
         <div>
           <strong>The demo ships the reference stylesheet.</strong>
           None of this appearance comes from the crate — <code>grid-dioxus</code>
-          contains no CSS. The demo's stylesheet is
-          <code>examples/basic/assets/grid.css</code>, which is also the file to copy
-          as a starting point. See <a href="styling.html">styling</a>.
+          contains no CSS. The grid itself is styled by
+          <code>examples/basic/assets/grid.css</code>, which is the file to copy as a
+          starting point; the avatars, chips and star ratings are the example's own
+          <code>demo.css</code>. See <a href="styling.html">styling</a>.
         </div>
       </div>
 
@@ -122,26 +125,40 @@
 
       <div class="code">
         <div class="code-head">examples/basic/src/main.rs</div>
-<pre><code><span class="k">let</span> columns = <span class="f">vec!</span>[
-    <span class="t">GridColumn</span>::<span class="f">new</span>(<span class="s">"name"</span>, <span class="s">"Name"</span>, |p: &amp;<span class="t">Product</span>| <span class="f">rsx!</span> { <span class="k">strong</span> { <span class="s">"{p.name}"</span> } })
-        .<span class="f">sortable</span>(|p: &amp;<span class="t">Product</span>| p.name.<span class="f">clone</span>())
-        .<span class="f">editable</span>(|p: &amp;<span class="t">Product</span>| p.name.<span class="f">clone</span>()),
-    <span class="t">GridColumn</span>::<span class="f">new</span>(<span class="s">"category"</span>, <span class="s">"Category"</span>, |p: &amp;<span class="t">Product</span>| <span class="f">rsx!</span> { <span class="s">"{p.category}"</span> })
-        .<span class="f">sortable</span>(|p: &amp;<span class="t">Product</span>| p.category.<span class="f">clone</span>())
-        .<span class="f">filter</span>(<span class="t">FilterKind</span>::<span class="t">Set</span>),
-    <span class="t">GridColumn</span>::<span class="f">new</span>(<span class="s">"price"</span>, <span class="s">"Price"</span>, |p: &amp;<span class="t">Product</span>| <span class="f">rsx!</span> { <span class="s">"${p.price:.2}"</span> })
-        .<span class="f">sortable_num</span>(|p: &amp;<span class="t">Product</span>| p.price)
-        .<span class="f">aggregate</span>(<span class="t">Aggregate</span>::<span class="t">Sum</span>),
-    <span class="t">GridColumn</span>::<span class="f">new</span>(<span class="s">"stock"</span>, <span class="s">"Stock"</span>, |p: &amp;<span class="t">Product</span>| <span class="f">rsx!</span> { <span class="s">"{p.stock}"</span> })
-        .<span class="f">sortable_num</span>(|p: &amp;<span class="t">Product</span>| p.stock <span class="k">as</span> <span class="t">f64</span>),
-];</code></pre>
+<pre><code><span class="c">// Rich cell content is just rsx — the grid does not know what a cell holds.</span>
+<span class="t">GridColumn</span>::<span class="f">new</span>(<span class="s">"customer"</span>, <span class="s">"Customer"</span>, |o: &amp;<span class="t">Order</span>| <span class="f">rsx!</span> {
+    <span class="k">div</span> { class: <span class="s">"cust"</span>,
+        <span class="k">span</span> { class: <span class="s">"avatar"</span>, <span class="s">"{initials(&amp;o.customer)}"</span> }
+        <span class="k">div</span> {
+            <span class="k">strong</span> { <span class="s">"{o.customer}"</span> }
+            <span class="k">span</span> { class: <span class="s">"sub"</span>, <span class="s">"{o.region}"</span> }
+        }
+    }
+})
+.<span class="f">sortable</span>(|o: &amp;<span class="t">Order</span>| o.customer.<span class="f">clone</span>())
+.<span class="f">editable</span>(|o: &amp;<span class="t">Order</span>| o.customer.<span class="f">clone</span>()),
+
+<span class="c">// A Set filter builds its checklist from the string sort key, so this sorts</span>
+<span class="c">// by label. Numeric sorting and a Set filter are mutually exclusive.</span>
+<span class="t">GridColumn</span>::<span class="f">new</span>(<span class="s">"status"</span>, <span class="s">"Status"</span>, |o: &amp;<span class="t">Order</span>| <span class="f">rsx!</span> {
+    <span class="k">span</span> { class: <span class="s">"chip chip-{o.status.tone()}"</span>, <span class="s">"{o.status.label()}"</span> }
+})
+.<span class="f">sortable</span>(|o: &amp;<span class="t">Order</span>| o.status.<span class="f">label</span>().<span class="f">to_string</span>())
+.<span class="f">filter</span>(<span class="t">FilterKind</span>::<span class="t">Set</span>),
+
+<span class="t">GridColumn</span>::<span class="f">new</span>(<span class="s">"total"</span>, <span class="s">"Total"</span>, |o: &amp;<span class="t">Order</span>| <span class="f">rsx!</span> { <span class="k">strong</span> { <span class="s">"${o.total:.2}"</span> } })
+    .<span class="f">sortable_num</span>(|o: &amp;<span class="t">Order</span>| o.total)
+    .<span class="f">filter</span>(<span class="t">FilterKind</span>::<span class="t">Range</span>)
+    .<span class="f">aggregate</span>(<span class="t">Aggregate</span>::<span class="t">Sum</span>)
+    .<span class="f">right</span>()
+    .<span class="f">width</span>(<span class="s">"7rem"</span>),</code></pre>
       </div>
 
       <p>
-        Four columns, and between them: sorting on all four, a set filter, numeric
-        filters, an editable cell, a footer total, group-by candidates, and the
-        projections export uses. No feature here needed a second piece of
-        configuration.
+        Eight columns, and between them: sorting on every one, Set, Range, Rating
+        and DateRange filters, an editable cell, two footer aggregates, alignment
+        and width hints, and columns that hide on narrow screens. No feature here
+        needed a second piece of configuration.
       </p>
 
       <p>The full file is <code>examples/basic/src/main.rs</code> in the repository.</p>
@@ -199,5 +216,11 @@ dx serve --package grid-basic-example --web</code></pre>
   </div>
 
 </div>
+<nav class="bottom-nav" aria-label="Quick navigation">
+  <a href="index.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 9.5 12 3l9 6.5"/><path d="M5 10.5V21h14V10.5"/></svg>Home</a>
+  <a href="quickstart.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H20v15H6.5A2.5 2.5 0 0 0 4 20.5z"/><path d="M4 5.5v15"/></svg>Quickstart</a>
+  <a href="demo.html" aria-current="page"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>Demo</a>
+  <a href="grid-core.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 6 3 12l5 6"/><path d="m16 6 5 6-5 6"/></svg>Crates</a>
+</nav>
 </body>
 </html>

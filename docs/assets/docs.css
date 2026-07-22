@@ -64,6 +64,7 @@
 
   --sidebar-w: 18rem;
   --toc-w: 15rem;
+  --prose-w: 48rem;   /* Protocol's max-w-3xl on large screens */
 }
 
 @media (min-width: 1280px) {
@@ -165,16 +166,24 @@ a:hover {
   flex: 1 1 auto;
 }
 
-/* Wide screens get the on-page contents rail beside the prose. */
+/* Wide screens get the on-page contents rail beside the prose.
+   Capping only .prose left the grid column stretching to the window edge, which
+   pushed the contents rail hundreds of pixels away with a dead void between.
+   The article is capped as a whole and anchored left rather than centred, which
+   is what Protocol does — content stays put as the window grows instead of
+   drifting toward the middle. */
 .article {
   display: block;
+  width: 100%;
+  max-width: var(--prose-w);
 }
 @media (min-width: 1280px) {
   .article {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) var(--toc-w);
-    gap: 3rem;
+    grid-template-columns: minmax(0, var(--prose-w)) var(--toc-w);
+    gap: 3.5rem;
     align-items: start;
+    max-width: calc(var(--prose-w) + var(--toc-w) + 3.5rem);
   }
 }
 
@@ -356,10 +365,59 @@ a:hover {
   }
 }
 
+
+/* ── Mobile bottom nav ─────────────────────────────────────────────────────────
+   Thumb-reachable shortcuts to the pages people actually jump between. Only
+   below lg, where the sidebar is a drawer and the top bar is a long reach. */
+
+.bottom-nav {
+  display: none;
+}
+
+@media (max-width: 1023px) {
+  .bottom-nav {
+    position: fixed;
+    inset: auto 0 0 0;
+    z-index: 46;
+    display: flex;
+    align-items: stretch;
+    border-top: 1px solid var(--hairline);
+    background: color-mix(in srgb, var(--bg) 92%, transparent);
+    backdrop-filter: blur(8px);
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  .bottom-nav a {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.15rem;
+    padding: 0.5rem 0.25rem 0.55rem;
+    color: var(--fg-faint);
+    font-size: 0.6875rem;
+    font-weight: 500;
+    text-decoration: none;
+  }
+  .bottom-nav a svg {
+    width: 1.25rem;
+    height: 1.25rem;
+  }
+  .bottom-nav a[aria-current="page"] {
+    color: var(--accent);
+  }
+  /* Keep the last of the content clear of the fixed bar. */
+  .content {
+    padding-bottom: 4.5rem;
+  }
+  .ftr {
+    padding-bottom: 1.5rem;
+  }
+}
+
 /* ── Prose ─────────────────────────────────────────────────────────────────── */
 
 .prose {
-  max-width: 42rem;
+  max-width: var(--prose-w);
 }
 .prose > :first-child {
   margin-top: 0;
@@ -783,7 +841,7 @@ td code {
   display: flex;
   justify-content: space-between;
   gap: 1rem;
-  max-width: 42rem;
+  max-width: var(--prose-w);
   margin-top: 4rem;
   padding-top: 1.5rem;
   border-top: 1px solid var(--hairline);
@@ -812,7 +870,7 @@ td code {
 /* ── Footer ────────────────────────────────────────────────────────────────── */
 
 .ftr {
-  max-width: 42rem;
+  max-width: var(--prose-w);
   margin-top: 4rem;
   padding: 1.5rem 0 3rem;
   border-top: 1px solid var(--hairline);
@@ -822,55 +880,55 @@ td code {
 
 /* ── Hero: skewed grid under an emerald→lime wash ──────────────────────────── */
 
-/* The wash deliberately bleeds past the prose column. `overflow: clip` on the
-   hero contains it, so the bleed never puts a horizontal scrollbar on the page
-   (clip rather than hidden: it does not create a scroll container). */
+/* The decoration lives in a short, self-clipping band pinned to the top of the
+   hero, NOT on the hero itself. Clipping the hero worked out badly: it is as tall
+   as the whole article, so the wash was cropped into a hard-edged rectangle
+   running the full page instead of fading out. A fixed-height band clips the
+   horizontal bleed (no page scrollbar) while leaving the vertical fade intact. */
 .hero {
   position: relative;
-  overflow: clip;
 }
 .hero::before {
   content: "";
   position: absolute;
-  top: -8rem;
-  left: -40rem;
-  right: -40rem;
-  height: 25rem;
+  top: -9rem;
+  left: 50%;
+  width: 100vw;
+  max-width: 90rem;
+  height: 26rem;
+  transform: translateX(-50%);
+  overflow: clip;
   z-index: -1;
+  pointer-events: none;
+
+  /* Grid lines and the colour wash in one layer, both masked to fade downward
+     so there is no visible edge where the decoration stops. */
   background-image:
-    linear-gradient(to right, rgb(255 255 255 / 0.04) 1px, transparent 1px),
-    linear-gradient(to bottom, rgb(255 255 255 / 0.04) 1px, transparent 1px);
-  background-size: 4.5rem 3.5rem;
-  transform: skewY(-18deg);
-  mask-image: radial-gradient(farthest-side at top, white, transparent);
-  pointer-events: none;
+    linear-gradient(to right, var(--grid-line) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--grid-line) 1px, transparent 1px),
+    linear-gradient(110deg, #36b49f, #dbff75);
+  background-size: 4.5rem 3.5rem, 4.5rem 3.5rem, 100% 100%;
+  background-position: center top;
+  opacity: var(--hero-strength);
+  mask-image: radial-gradient(60% 100% at 30% 0%, white, transparent);
 }
-.hero::after {
-  content: "";
-  position: absolute;
-  top: -8rem;
-  left: -20rem;
-  width: 60rem;
-  height: 22rem;
-  z-index: -2;
-  background: linear-gradient(to right, #36b49f, #dbff75);
-  opacity: 0.15;
-  mask-image: radial-gradient(farthest-side at top, white, transparent);
-  pointer-events: none;
+
+:root {
+  --grid-line: rgb(255 255 255 / 0.055);
+  --hero-strength: 0.22;
 }
 @media (prefers-color-scheme: light) {
-  .hero::before {
-    background-image:
-      linear-gradient(to right, rgb(24 24 27 / 0.05) 1px, transparent 1px),
-      linear-gradient(to bottom, rgb(24 24 27 / 0.05) 1px, transparent 1px);
-  }
-  .hero::after {
-    opacity: 0.3;
+  :root {
+    --grid-line: rgb(24 24 27 / 0.06);
+    --hero-strength: 0.3;
   }
 }
 
 /* ── Demo embed ────────────────────────────────────────────────────────────── */
 
+/* A data grid needs width. Inside the 44rem measure the columns get squeezed to
+   the point of being misleading, so the embed breaks out of the prose column and
+   uses whatever room the content area has. */
 .frame {
   margin: 1.5rem 0;
   border-radius: 1rem;
@@ -880,9 +938,39 @@ td code {
 .frame iframe {
   display: block;
   width: 100%;
-  height: 42rem;
+  height: 44rem;
   border: 0;
   background: #fff;
+}
+
+@media (min-width: 1024px) {
+  /* Widen past the measure, staying inside the content padding. */
+  .frame {
+    width: calc(100vw - var(--sidebar-w) - 4rem);
+    max-width: 72rem;
+  }
+}
+/* From 1280px the contents rail sits to the right, and the article becomes a
+   grid — so the frame must stay within its own column or it slides under the
+   rail. Cap it at the column width the grid actually gives us. */
+@media (min-width: 1280px) {
+  .frame {
+    width: 100%;
+    max-width: none;
+  }
+  /* Let the demo column breathe: on the demo page the rail is short, so give the
+     prose column the wider share. */
+  .article:has(.frame) {
+    grid-template-columns: minmax(0, 1fr) var(--toc-w);
+    max-width: calc(100vw - var(--sidebar-w) - 6rem);
+  }
+  .article:has(.frame) .prose {
+    max-width: none;
+  }
+  /* Text still needs a readable measure even though the frame is wide. */
+  .article:has(.frame) .prose > :not(.frame) {
+    max-width: var(--prose-w);
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
