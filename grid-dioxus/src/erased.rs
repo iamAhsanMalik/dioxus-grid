@@ -77,13 +77,25 @@ pub struct ErasedRow {
     pub on_edit: Option<Rc<dyn Fn(&'static str, String)>>,
 }
 
+/// A bulk action fired for `(action_key, selected_row_ids)`. The shell maps the ids
+/// back to concrete rows before calling the host.
+pub type BulkActionFn = Rc<dyn Fn(&'static str, Vec<String>)>;
+
+/// A client-side export of `(format, scope_all)`, built by the shell.
+pub type ExportFn = Rc<dyn Fn(crate::grid_export::ExportFormat, bool)>;
+
 /// Grid-level callbacks (per-row ones live on [`ErasedRow`]). Bulk actions take
 /// the set of selected row ids; the shell maps those back to concrete rows.
 #[derive(Clone)]
 pub struct ErasedCallbacks {
-    pub on_bulk_action: Option<Rc<dyn Fn(&'static str, Vec<String>)>>,
+    pub on_bulk_action: Option<BulkActionFn>,
     pub on_selection: Option<Rc<dyn Fn(Vec<String>)>>,
     pub on_export_signed: Option<Rc<dyn Fn(crate::data_grid::GridQuery)>>,
+    /// Run a client-side export of `(format, scope_all)`. Built in the generic shell
+    /// — it re-runs the query unbounded and projects every row to text, both of which
+    /// need `T` — so the renderer can offer the export menu without seeing `T`.
+    /// `scope_all` ignores search + filters; otherwise the filtered set is exported.
+    pub on_export: Option<ExportFn>,
 }
 
 /// Everything the non-generic renderer needs — no `T` anywhere.
@@ -104,8 +116,13 @@ pub struct ErasedGrid {
     pub has_row_slot: bool,
     pub has_search: bool,
     pub export_filename: Option<&'static str>,
+    /// Formats the export menu may offer; `None` = every available format.
+    pub export_formats: Option<&'static [crate::grid_export::ExportFormat]>,
     pub today: Option<String>,
     pub persist_key: Option<&'static str>,
+    /// Row count of the whole dataset, ignoring search + filters — the "Export all"
+    /// label. (`total` is the filtered count.)
+    pub full_count: usize,
     // Query results for the current page (from the engine, computed in the shell).
     pub total: usize,
     pub page_count: usize,

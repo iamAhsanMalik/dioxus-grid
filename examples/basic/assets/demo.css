@@ -39,6 +39,23 @@ body {
   padding: 2.5rem 1.25rem 4rem;
 }
 
+/* Embedded in the docs' iframe (`?embed=1`): the surrounding page supplies the
+   heading and footer, so this is only the grid. Tight padding and a transparent
+   background let the frame read as part of the docs page rather than a nested
+   site, and keeping the content short is what removes the frame's scrollbar. */
+.page-embed {
+  max-width: none;
+  padding: 0.85rem 0.9rem 1rem;
+}
+/* Inherit the docs page's surface rather than painting our own near-white/near-black
+   over it — the frame should read as part of the page, not as a nested site. */
+body:has(.page-embed) {
+  background: transparent;
+}
+.page-embed .log {
+  margin-bottom: 0.85rem;
+}
+
 .page-head {
   display: flex;
   align-items: flex-start;
@@ -197,6 +214,50 @@ body {
   font-size: 12px;
   letter-spacing: 0.05em;
   white-space: nowrap;
+}
+
+/* Card body for grid view. The same row the table renders, laid out as a tile —
+   the grid switches views; the app decides what a tile looks like. */
+.ocard {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+.ocard-top {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+.ocard-who {
+  min-width: 0;
+  flex: 1;
+}
+.ocard-who strong {
+  display: block;
+  font-weight: 550;
+  line-height: 1.3;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ocard-who .sub {
+  display: block;
+  line-height: 1.3;
+}
+.ocard-mid,
+.ocard-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+.ocard-foot {
+  padding-top: 0.6rem;
+  border-top: 1px solid var(--page-line);
+}
+.ocard-foot strong {
+  font-size: 15px;
+  font-weight: 650;
 }
 
 @media (max-width: 720px) {

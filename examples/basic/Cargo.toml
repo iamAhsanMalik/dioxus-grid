@@ -17,6 +17,10 @@ path = "src/main.rs"
 dioxus = { version = "0.7", features = ["web"] }
 grid-dioxus = { path = "../../grid-dioxus", features = ["web"] }
 
+# Only to read `?embed=1` off the URL, so the docs iframe can drop the page chrome.
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+web-sys = { version = "0.3", features = ["Window", "Location"] }
+
 [features]
 default = []
 # Compile the type-erased renderer (smaller wasm; see the repo README).

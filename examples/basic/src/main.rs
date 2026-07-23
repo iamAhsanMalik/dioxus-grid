@@ -90,10 +90,26 @@ fn seed() -> Vec<Order> {
         .collect()
 }
 
+/// Is the app running inside the docs' `<iframe>` (`?embed=1`)? In embed mode the
+/// page heading and footer are dropped, because the surrounding docs page already
+/// provides them — the frame then holds only the grid and needs no scrollbar of its
+/// own. Non-web builds are never embedded.
+fn embedded() -> bool {
+    #[cfg(target_arch = "wasm32")]
+    {
+        web_sys::window()
+            .and_then(|w| w.location().search().ok())
+            .is_some_and(|s| s.contains("embed=1"))
+    }
+    #[cfg(not(target_arch = "wasm32"))]
+    false
+}
+
 #[component]
 fn App() -> Element {
     let mut orders = use_signal(seed);
     let mut log = use_signal(|| String::from("Sort a column, open a filter, select some rows."));
+    let embed = use_hook(embedded);
 
     // Columns are declared once. Each carries its own projections: how to render,
     // sort, filter, edit, aggregate and export. The grid reads them, so there is
@@ -158,6 +174,9 @@ fn App() -> Element {
             rsx! { strong { "${o.total:.2}" } }
         })
         .sortable_num(|o: &Order| o.total)
+        // Without this the CSV would carry the raw f64 (20.880000000000003); the
+        // export uses `csv` in preference to the sort key, so money stays money.
+        .csv(|o: &Order| format!("{:.2}", o.total))
         .filter(FilterKind::Range)
         .aggregate(Aggregate::Sum)
         .right()
@@ -169,18 +188,20 @@ fn App() -> Element {
         document::Stylesheet { href: GRID_CSS }
         document::Stylesheet { href: DEMO_CSS }
 
-        div { class: "page",
-            header { class: "page-head",
-                div {
-                    p { class: "eyebrow", "grid-dioxus" }
-                    h1 { "Orders" }
-                    p { class: "lead",
-                        "124 rows, rendered by a headless grid. Sort any column, open a filter,
-                         edit a customer name inline, select rows for the bulk bar, or switch to
-                         card view. Nothing here is styled by the crate — this page brings its own CSS."
+        div { class: if embed { "page page-embed" } else { "page" },
+            if !embed {
+                header { class: "page-head",
+                    div {
+                        p { class: "eyebrow", "grid-dioxus" }
+                        h1 { "Orders" }
+                        p { class: "lead",
+                            "124 rows, rendered by a headless grid. Sort any column, open a filter,
+                             edit a customer name inline, select rows for the bulk bar, or switch to
+                             card view. Nothing here is styled by the crate — this page brings its own CSS."
+                        }
                     }
+                    a { class: "docs-link", href: "../index.html", "Documentation →" }
                 }
-                a { class: "docs-link", href: "../index.html", "Documentation →" }
             }
 
             p { class: "log", "{log}" }
@@ -219,14 +240,47 @@ fn App() -> Element {
                     log.set(format!("{} set to “{}”", edit.key, edit.value));
                 },
                 selectable: true,
-                page_size: 12,
-                // `export_filename` is deliberately not set: the export menu only
-                // renders on the monomorphized path, and wasm defaults to erased.
+                // A shorter page when embedded: the docs frame is a fixed height, and
+                // the grid must fit it without a scrollbar of its own even once the
+                // filter-chip bar appears.
+                page_size: if embed { 8 } else { 12 },
+                export_filename: "orders.csv",
+                // This demo is a static page with no backend. On web, Excel and PDF
+                // are encoded by the host's `/export` endpoint, so offering them here
+                // would be offering something that cannot finish — CSV is encoded in
+                // the browser and works standalone.
+                export_formats: Some(&[grid_dioxus::ExportFormat::Csv] as &[_]),
+                // Card body for the grid/list toggle. Same row, laid out for a tile —
+                // the grid renders whichever view is active; nothing else changes.
+                card: Some((|o: &Order| {
+                    rsx! {
+                        div { class: "ocard",
+                            div { class: "ocard-top",
+                                span { class: "avatar", "{initials(&o.customer)}" }
+                                div { class: "ocard-who",
+                                    strong { "{o.customer}" }
+                                    span { class: "sub", "{o.region}" }
+                                }
+                                span { class: "chip chip-{o.status.tone()}", "{o.status.label()}" }
+                            }
+                            div { class: "ocard-mid",
+                                span { class: "mono sub", "{o.reference}" }
+                                span { class: "stars", "{stars(o.rating)}" }
+                            }
+                            div { class: "ocard-foot",
+                                span { class: "sub", "{o.channel} · {o.items} items" }
+                                strong { "${o.total:.2}" }
+                            }
+                        }
+                    }
+                }) as fn(&Order) -> Element),
             }
 
-            footer { class: "page-foot",
-                span { "Headless: every element carries a " code { "dxg-" } " class and " code { "data-" } " state." }
-                a { href: "https://github.com/iamAhsanMalik/dioxus-grid", "Source" }
+            if !embed {
+                footer { class: "page-foot",
+                    span { "Headless: every element carries a " code { "dxg-" } " class and " code { "data-" } " state." }
+                    a { href: "https://github.com/iamAhsanMalik/dioxus-grid", "Source" }
+                }
             }
         }
     }

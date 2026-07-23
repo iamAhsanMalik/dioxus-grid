@@ -9,14 +9,14 @@
 //!
 //! Implemented: search, tri-state sort, pagination, per-column filters (funnel +
 //! popover), active-filter chips, row + page selection, bulk-action bar, per-row
-//! actions (kebab menu), card/gallery view + toggle, inline cell editing, and
-//! group-by (header rows on value change).
+//! actions (kebab menu), card/gallery view + toggle, inline cell editing, group-by
+//! (header rows on value change), and the export menu (CSV / Excel / PDF over the
+//! filtered set or the whole dataset — the `T`-dependent projection is done by the
+//! shell and handed over as a boxed closure).
 //!
-//! Not yet in erased mode (fall back to `force-mono` if you need them): the
-//! **column chooser** (show/hide + pin columns) and the **export menu** (CSV /
-//! signed-PDF). Both require extra shell-side projection/serialization that the
-//! monomorphized renderer does inline; they're the only feature gaps between the
-//! two paths. Tracked as follow-ups.
+//! Not yet in erased mode (fall back to `force-mono` if you need it): the **column
+//! chooser** (show/hide + pin columns), which needs shell-side visibility state the
+//! monomorphized renderer keeps inline. Tracked as a follow-up.
 
 #![cfg(grid_erased)]
 
@@ -62,6 +62,25 @@ pub fn ErasedDataGrid(grid: ReadSignal<ErasedGrid>, state: ErasedState) -> Eleme
     let mut edit_draft = use_signal(String::new);
     let mut group_by = state.group_by;
     let mut show_group_menu = use_signal(|| false);
+    let mut show_export_menu = use_signal(|| false);
+
+    // Export menu contents: the formats this build can actually produce (CSV always;
+    // Excel/PDF need `export-rich`), plus the two row counts the labels quote.
+    const ICON_CSV: &str = r#"<path d="M3 3h18v18H3z"/><path d="M3 9h18"/><path d="M3 15h18"/><path d="M9 3v18"/>"#;
+    const ICON_XLSX: &str =
+        r#"<rect width="18" height="18" x="3" y="3" rx="2"/><path d="M8 8l8 8"/><path d="M16 8l-8 8"/>"#;
+    const ICON_PDF: &str = r#"<path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M9 13h6"/><path d="M9 17h6"/>"#;
+    let export_formats: Vec<(crate::grid_export::ExportFormat, &'static str, &'static str)> = [
+        (crate::grid_export::ExportFormat::Csv, "CSV", ICON_CSV),
+        (crate::grid_export::ExportFormat::Xlsx, "Excel", ICON_XLSX),
+        (crate::grid_export::ExportFormat::Pdf, "PDF", ICON_PDF),
+    ]
+    .into_iter()
+    .filter(|(f, _, _)| crate::grid_export::format_available(*f))
+    .filter(|(f, _, _)| g.export_formats.is_none_or(|allow| allow.contains(f)))
+    .collect();
+    let total_rows = g.total;
+    let full_rows = g.full_count;
 
     let is_loading = g.loading;
     let is_empty = g.rows.is_empty();
@@ -97,7 +116,9 @@ pub fn ErasedDataGrid(grid: ReadSignal<ErasedGrid>, state: ErasedState) -> Eleme
             "data-loading": if is_loading { "true" },
 
             // ── Toolbar (select-page · search · group · view toggle) ─────────
-            if g.has_search || show_card_toggle || selectable {
+            if g.has_search || show_card_toggle || selectable || g.callbacks.on_export.is_some()
+                || g.callbacks.on_export_signed.is_some()
+            {
                 div { class: "dxg-toolbar",
                     // Select-all-on-page — first control, shown in every view (the
                     // card view has no header checkbox, so this is how you bulk-select).
@@ -188,6 +209,89 @@ pub fn ErasedDataGrid(grid: ReadSignal<ErasedGrid>, state: ErasedState) -> Eleme
                                 }
                             }
                         } else { rsx! {} }
+                    }
+                    // ── Export menu (CSV / Excel / PDF × filtered / all) ─────
+                    // The `T`-dependent work lives in the shell's `on_export`; here
+                    // it is just a boxed closure, so the erased path offers the same
+                    // export UI as the monomorphized one.
+                    if g.callbacks.on_export.is_some() || g.callbacks.on_export_signed.is_some() {
+                        div { class: "dxg-export",
+                            button {
+                                r#type: "button",
+                                title: "Export data",
+                                class: "dxg-button dxg-export-trigger",
+                                onclick: move |_| { let v = *show_export_menu.peek(); show_export_menu.set(!v); },
+                                svg {
+                                    width: "14", height: "14", view_box: "0 0 24 24",
+                                    fill: "none", stroke: "currentColor", stroke_width: "2",
+                                    stroke_linecap: "round", stroke_linejoin: "round",
+                                    path { d: "M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" }
+                                    polyline { points: "7 10 12 15 17 10" }
+                                    line { x1: "12", y1: "15", x2: "12", y2: "3" }
+                                }
+                                span { class: "dxg-button-label", "Export" }
+                                svg {
+                                    class: "dxg-chevron",
+                                    width: "12", height: "12", view_box: "0 0 24 24",
+                                    fill: "none", stroke: "currentColor", stroke_width: "2.4",
+                                    stroke_linecap: "round", stroke_linejoin: "round",
+                                    polyline { points: "6 9 12 15 18 9" }
+                                }
+                            }
+                            if *show_export_menu.read() {
+                                // `onpointerdown`: Dioxus's delegated click doesn't fire on a bare veil.
+                                div { class: "dxg-veil", onpointerdown: move |_| show_export_menu.set(false) }
+                                div { class: "dxg-menu dxg-export-menu", role: "menu",
+                                    if let Some(exp) = g.callbacks.on_export.clone() {
+                                        div { class: "dxg-menu-label", "Filtered ({total_rows} rows)" }
+                                        for (fmt , label , icon) in export_formats.iter().cloned() {
+                                            {
+                                                let exp = exp.clone();
+                                                rsx! {
+                                                    button {
+                                                        r#type: "button",
+                                                        class: "dxg-menu-item",
+                                                        role: "menuitem",
+                                                        onclick: move |_| { exp(fmt, false); show_export_menu.set(false); },
+                                                        svg {
+                                                            class: "dxg-menu-icon",
+                                                            width: "16", height: "16", view_box: "0 0 24 24",
+                                                            fill: "none", stroke: "currentColor", stroke_width: "2",
+                                                            stroke_linecap: "round", stroke_linejoin: "round",
+                                                            dangerous_inner_html: "{icon}",
+                                                        }
+                                                        span { class: "dxg-menu-item-label", "{label}" }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                        div { class: "dxg-menu-divider" }
+                                        div { class: "dxg-menu-label", "All ({full_rows} rows)" }
+                                        for (fmt , label , icon) in export_formats.iter().cloned() {
+                                            {
+                                                let exp = exp.clone();
+                                                rsx! {
+                                                    button {
+                                                        r#type: "button",
+                                                        class: "dxg-menu-item",
+                                                        role: "menuitem",
+                                                        onclick: move |_| { exp(fmt, true); show_export_menu.set(false); },
+                                                        svg {
+                                                            class: "dxg-menu-icon",
+                                                            width: "16", height: "16", view_box: "0 0 24 24",
+                                                            fill: "none", stroke: "currentColor", stroke_width: "2",
+                                                            stroke_linecap: "round", stroke_linejoin: "round",
+                                                            dangerous_inner_html: "{icon}",
+                                                        }
+                                                        span { class: "dxg-menu-item-label", "{label}" }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
                     }
                     if show_card_toggle {
                         div { class: "dxg-view-toggle", role: "group", "aria-label": "View mode",
