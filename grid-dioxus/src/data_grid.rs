@@ -784,6 +784,15 @@ pub struct DataGridProps<T: Clone + PartialEq + 'static> {
     /// (e.g. `"products.csv"`). `None` hides the export button.
     #[props(default)]
     pub export_filename: Option<&'static str>,
+    /// Restrict which formats the export menu offers. `None` (the default) offers
+    /// every format this build can produce.
+    ///
+    /// On web, Excel and PDF are encoded by the host's `/export` endpoint (only
+    /// native `export-rich` builds encode them locally), so a **static** deployment
+    /// with no backend should pass `&[ExportFormat::Csv]` — otherwise the menu offers
+    /// two items that cannot complete.
+    #[props(default)]
+    pub export_formats: Option<&'static [ExportFormat]>,
     /// Server-side **signed/encrypted PDF** export. When set, the export menu adds a
     /// "Signed PDF" item that fires this handler with the current [`GridQuery`]. The
     /// host posts that query to its backend, which renders, digitally signs and
@@ -934,7 +943,61 @@ pub fn DataGrid<T: Clone + PartialEq + 'static>(props: DataGridProps<T>) -> Elem
         let row_id = props.row_id;
         move |ids: &[String]| -> Vec<T> { rows_rc.iter().filter(|r| ids.contains(&row_id(r))).cloned().collect() }
     };
+    // Client-side export, erased. The `T`-dependent half — re-running the query with
+    // an unbounded page and projecting each row via `csv → sort_key → sort_num` —
+    // happens here in the generic shell; the renderer only calls the boxed closure.
+    // Mirrors the monomorphized `do_export` exactly, so both paths produce the same
+    // file for the same view.
+    let on_export: Option<Rc<dyn Fn(ExportFormat, bool)>> = props.export_filename.map(|fname| {
+        let rows_rc = props.rows.clone();
+        let cols = props.columns.clone();
+        let search = props.search_text;
+        Rc::new(move |format: ExportFormat, scope_all: bool| {
+            // Export keeps the user's sort but never the grouping — a flat file.
+            let mut q = build_grid_query(&cols, &filters.read(), &grid.read(), &extra_sorts.read(), None);
+            if scope_all {
+                q.search.clear();
+                q.filters = FilterModel::new();
+            }
+            q.page = 0;
+            q.page_size = usize::MAX;
+            q.aggregates.clear();
+            let ecols = engine_columns(&cols);
+            let out = LocalProvider::new(rows_rc.clone(), &ecols).search_opt(search).query(&q);
+            let headers: Vec<String> = cols.iter().map(|c| c.label.to_string()).collect();
+            let body: Vec<Vec<String>> = out
+                .rows
+                .iter()
+                .map(|row| {
+                    cols.iter()
+                        .map(|c| {
+                            if let Some(f) = c.csv {
+                                f(row)
+                            } else if let Some(f) = c.sort_key {
+                                f(row)
+                            } else if let Some(f) = c.sort_num {
+                                let n = f(row);
+                                if n.fract() == 0.0 {
+                                    format!("{}", n as i64)
+                                } else {
+                                    n.to_string()
+                                }
+                            } else {
+                                String::new()
+                            }
+                        })
+                        .collect()
+                })
+                .collect();
+            let stem = fname.strip_suffix(".csv").unwrap_or(fname);
+            let filename = format!("{stem}.{}", format.extension());
+            let data = grid_export::ExportData { headers, rows: body, title: stem.to_string() };
+            grid_export::export(&data, format, &filename);
+        }) as Rc<dyn Fn(ExportFormat, bool)>
+    });
+
     let callbacks = ErasedCallbacks {
+        on_export,
         on_bulk_action: props.on_bulk_action.map(|h| {
             let lookup = bulk_lookup.clone();
             Rc::new(move |k: &'static str, ids: Vec<String>| h.call((k, lookup(&ids))))
@@ -962,8 +1025,10 @@ pub fn DataGrid<T: Clone + PartialEq + 'static>(props: DataGridProps<T>) -> Elem
         has_row_slot: props.row.is_some(),
         has_search: props.search_text.is_some(),
         export_filename: props.export_filename,
+        export_formats: props.export_formats,
         today: props.today.clone(),
         persist_key: props.persist_key,
+        full_count: props.rows.len(),
         total: page_val.total,
         page_count: page_val.page_count,
         page: page_val.page,
@@ -1304,6 +1369,7 @@ pub fn DataGrid<T: Clone + PartialEq + 'static>(props: DataGridProps<T>) -> Elem
     ]
     .into_iter()
     .filter(|(f, _, _)| grid_export::format_available(*f))
+    .filter(|(f, _, _)| props.export_formats.is_none_or(|allow| allow.contains(f)))
     .collect();
     // Active-filter chips: (column key, human label). Built in declared column
     // order so the bar is stable as the user adds/removes filters.

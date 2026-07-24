@@ -926,50 +926,76 @@ td code {
 
 /* ── Demo embed ────────────────────────────────────────────────────────────── */
 
-/* A data grid needs width. Inside the 44rem measure the columns get squeezed to
-   the point of being misleading, so the embed breaks out of the prose column and
-   uses whatever room the content area has. */
+/* A data grid needs more width than a text measure. The frame therefore breaks
+   out of the prose column on its own — the ARTICLE is never widened, so the
+   centre column is exactly as wide on this page as on every other one. The
+   breakout is symmetric negative margin, clamped by `--frame-bleed` so the frame
+   can never reach the contents rail.
+
+   `--embed-h` is the frame height; the embedded demo (`?embed=1`) drops its page
+   heading and footer so its content fits, and the iframe needs no scrollbar. */
+:root {
+  --frame-bleed: 0rem;
+  /* Tall enough for the embedded demo's 8-row page plus toolbar, filter-chip bar
+     and pager, so the frame never scrolls on its own. Measured against the built
+     demo — revisit if its `page_size` or chrome changes. */
+  --embed-h: 55rem;
+}
 .frame {
-  margin: 1.5rem 0;
-  border-radius: 1rem;
+  margin: 1.75rem calc(-1 * var(--frame-bleed));
+  width: calc(100% + 2 * var(--frame-bleed));
+  border-radius: 0.875rem;
   box-shadow: inset 0 0 0 1px var(--hairline-strong);
+  /* A faint raise off the page, not the always-dark code surface — the demo inside
+     is themed like the docs and should sit on the same background. */
+  background: var(--raise);
   overflow: hidden;
 }
 .frame iframe {
   display: block;
   width: 100%;
-  height: 44rem;
+  height: var(--embed-h);
   border: 0;
-  background: #fff;
+  /* The demo renders its own background (it honours prefers-color-scheme), so
+     leaving this transparent avoids a white flash before the wasm boots. */
+  background: transparent;
+  color-scheme: light dark;
 }
 
-@media (min-width: 1024px) {
-  /* Widen past the measure, staying inside the content padding. */
-  .frame {
-    width: calc(100vw - var(--sidebar-w) - 4rem);
-    max-width: 72rem;
+/* Narrow screens: the status line wraps to two lines and rows are taller, so the
+   same 8-row page needs more height than on desktop. */
+@media (max-width: 640px) {
+  :root {
+    --embed-h: 59rem;
   }
 }
-/* From 1280px the contents rail sits to the right, and the article becomes a
-   grid — so the frame must stay within its own column or it slides under the
-   rail. Cap it at the column width the grid actually gives us. */
+
+/* Below the rail breakpoint the article is a single column, so the frame may use
+   the content padding on both sides. */
+@media (min-width: 1024px) and (max-width: 1279.98px) {
+  :root {
+    --frame-bleed: 1rem;
+  }
+}
+/* From 1280px the article is centred in the content area, which leaves unused room
+   to its right. A grid needs that room far more than the page needs symmetry, so
+   the frame bleeds 2rem left (into the sidebar gutter) and as far right as the
+   content area allows — spanning under the contents rail, which is short and sits
+   above where the frame begins.
+
+   `right` is measured from the frame's own right edge to the content edge:
+     content right - prose right - 1rem of breathing room.
+   Both are known: the prose column is `--prose-w` from the article's left edge. */
 @media (min-width: 1280px) {
   .frame {
-    width: 100%;
-    max-width: none;
-  }
-  /* Let the demo column breathe: on the demo page the rail is short, so give the
-     prose column the wider share. */
-  .article:has(.frame) {
-    grid-template-columns: minmax(0, 1fr) var(--toc-w);
-    max-width: calc(100vw - var(--sidebar-w) - 6rem);
-  }
-  .article:has(.frame) .prose {
-    max-width: none;
-  }
-  /* Text still needs a readable measure even though the frame is wide. */
-  .article:has(.frame) .prose > :not(.frame) {
-    max-width: var(--prose-w);
+    --frame-bleed: 2rem;
+    margin-left: calc(-1 * var(--frame-bleed));
+    margin-right: calc(-1 * var(--frame-right-bleed));
+    width: auto;
+    --frame-right-bleed: max(
+      0px,
+      calc(100vw - var(--sidebar-w) - 2rem - var(--prose-w) - 2rem)
+    );
   }
 }
 

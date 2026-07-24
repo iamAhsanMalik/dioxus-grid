@@ -10,10 +10,18 @@ While the project is `0.x`, minor releases may contain breaking changes.
 
 ### Added
 
+- The type-erased renderer now draws the export menu, so CSV export works on wasm
+  builds without `force-mono`. The row projection stays in the generic shell (it
+  needs `T`) and is handed to the renderer as a boxed closure, so the export still
+  covers the whole filtered set rather than the visible page.
+- `export_formats` restricts which formats the menu offers. On web, Excel and PDF
+  are encoded by the host's `/export` endpoint, so a static deployment with no
+  backend can now offer CSV alone instead of two items that cannot complete.
 - A documentation site under `docs/`, published to GitHub Pages alongside the
   wasm demo. Static HTML and one stylesheet, no build step.
 - The example is now a fuller showcase: 124 rows with custom cell rendering,
-  several filter kinds, footer aggregates and bulk actions.
+  several filter kinds, footer aggregates, bulk actions, a card body for grid
+  view, and CSV export.
 
 ### Fixed
 
@@ -24,10 +32,10 @@ While the project is `0.x`, minor releases may contain breaking changes.
 
 ### Known issues
 
-- The type-erased renderer does not draw the export control, so the CSV, Excel
-  and PDF menu is missing on wasm builds unless `force-mono` is enabled.
 - A `Set` filter builds its checklist from the string sort key, so a column that
   declares only `.sortable_num(…)` shows an empty filter with no error.
+- The type-erased renderer still has no column chooser; use `force-mono` if you
+  need show/hide and pin.
 
 ## [0.1.0] - 2026-07-11
 
